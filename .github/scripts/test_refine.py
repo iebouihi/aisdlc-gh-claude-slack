@@ -74,10 +74,10 @@ class Fake:
     def ask_claude(self, instruction, tool):
         self.claude_calls.append((tool["name"], instruction))
         if tool["name"] == "kickoff":
-            return {"restatement": "Users can add, edit and delete habits.", "questions": [
-                {"group": "Scope", "question": "Which fields?", "default": "Name + emoji."},
-                {"group": "Data", "question": "Storage?", "default": "localStorage."},
-                {"group": "UX", "question": "Empty state?", "default": "Prompt + Add button."}]}
+            return {"restatement": "Users can add, edit and delete habits.", "questions": (
+                "Scope :: Which fields? :: Name + emoji.\n"
+                "Data :: Storage? :: localStorage.\n"
+                "UX :: Empty state? :: Prompt + Add button.")}
         return self.next_sync
 
 
@@ -85,7 +85,23 @@ def labels(f):
     return sorted(l["name"] for l in f.issue["labels"])
 
 
+def parsing():
+    # the exact malformed output seen in the first live run (stringified JSON with a typo)
+    broken = ('[\n{"group":"Scope","\"question":"Is a habit just a name?","default":"Name only."},\n'
+              '{"group":"Data","question":"Where is data stored?","default":"localStorage."}\n]')
+    qs = refine.parse_questions(broken)
+    assert [q["question"] for q in qs] == ["Is a habit just a name?", "Where is data stored?"], qs
+    assert qs[1]["group"] == "Data" and qs[1]["default"] == "localStorage."
+    qs = refine.parse_questions("1. UX :: Empty state? :: Prompt\n\n- Scope :: Edit? :: Inline :: in row\nJust a question?")
+    assert [(q["group"], q["question"], q["default"]) for q in qs] == [
+        ("UX", "Empty state?", "Prompt"), ("Scope", "Edit?", "Inline :: in row"), ("Other", "Just a question?", "")], qs
+    qs = refine.parse_questions([{"group": "UX", "question": "Q?", "default": "D"}])
+    assert qs == [{"group": "UX", "question": "Q?", "default": "D"}]
+    print("ok  question parsing (lines, list, broken JSON)")
+
+
 def run():
+    parsing()
     f = Fake()
     refine.gh, refine.slack, refine.ask_claude = f.gh, f.slack, f.ask_claude
 

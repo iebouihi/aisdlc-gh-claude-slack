@@ -134,32 +134,54 @@ KICKOFF_TOOL = {
         "properties": {
             "restatement": {"type": "string", "description": "One short paragraph restating the requirement in plain words."},
             "questions": {
-                "type": "array", "minItems": 3, "maxItems": 15,
-                "items": {"type": "object", "properties": {
-                    "group": {"type": "string", "enum": GROUPS},
-                    "question": {"type": "string"},
-                    "default": {"type": "string", "description": "Proposed default answer the team can accept with 'ok'."}},
-                    "required": ["group", "question", "default"]}},
+                "type": "string",
+                "description": ("3 to 15 questions, ONE PER LINE, each formatted exactly as\n"
+                                "<group> :: <question> :: <proposed default answer>\n"
+                                f"where <group> is one of: {', '.join(GROUPS)}. Plain text, no JSON, no numbering."),
+            },
         },
         "required": ["restatement", "questions"],
     },
 }
 
 
+def _question(group, question, default=""):
+    group = group.strip() if group and group.strip() in GROUPS else "Other"
+    return {"group": group, "question": question.strip(), "default": (default or "").strip()}
+
+
 def parse_questions(raw):
-    """Accept the question list as a list or as a JSON string; normalise each item."""
-    if isinstance(raw, str):
+    """Parse 'group :: question :: default' lines; also tolerates a list or JSON (even slightly broken)."""
+    if isinstance(raw, list):
+        items = raw
+    else:
+        text = str(raw or "")
         try:
-            raw = json.loads(raw)
+            items = json.loads(text)
         except ValueError:
-            raw = [line.strip() for line in raw.splitlines() if line.strip()]
+            items = text.splitlines()
     result = []
-    for q in raw or []:
-        if isinstance(q, str):
-            q = {"question": q}
-        if isinstance(q, dict) and q.get("question"):
-            group = q.get("group") if q.get("group") in GROUPS else "Other"
-            result.append({"group": group, "question": str(q["question"]), "default": str(q.get("default") or "")})
+    for item in items:
+        if isinstance(item, dict):
+            if item.get("question"):
+                result.append(_question(item.get("group", ""), str(item["question"]), str(item.get("default") or "")))
+            continue
+        line = str(item).strip().strip(",")
+        if not line or line in "[]{}":
+            continue
+        if line.startswith("{"):  # a JSON object on its own line, possibly with a typo
+            fields = dict(re.findall(r'"(group|question|default)"\s*:\s*"((?:[^"\\]|\\.)*)"', line))
+            if fields.get("question"):
+                result.append(_question(fields.get("group", ""), fields["question"], fields.get("default", "")))
+            continue
+        line = re.sub(r"^\s*(\d+[.)]|[-*•])\s*", "", line)
+        parts = [p.strip() for p in line.split("::")]
+        if len(parts) >= 3:
+            result.append(_question(parts[0], parts[1], " :: ".join(parts[2:])))
+        elif len(parts) == 2:
+            result.append(_question(parts[0], parts[1]) if parts[0] in GROUPS else _question("", parts[0], parts[1]))
+        else:
+            result.append(_question("", parts[0]))
     return result
 
 
