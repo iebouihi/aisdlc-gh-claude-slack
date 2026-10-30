@@ -97,9 +97,16 @@ class Fake:
         if method == "PATCH" and path == "/issues/7":
             self.issue.update(kw["json"]); return {}
         if method == "GET" and path.startswith("/git/ref/heads/"):
-            return {"object": {"sha": "base-sha"}}
+            b = path.split("/git/ref/heads/")[1]
+            if b == "main" or b in self.branches:
+                return {"object": {"sha": "base-sha"}}
+            assert missing_ok
+            return None
         if method == "DELETE" and path.startswith("/git/refs/heads/"):
-            self.branches.pop(path.split("/git/refs/heads/")[1], None); return None
+            b = path.split("/git/refs/heads/")[1]
+            if b not in self.branches:  # like GitHub: 422 "Reference does not exist"
+                raise RuntimeError("422 Reference does not exist")
+            self.branches.pop(b); return None
         if method == "POST" and path == "/git/refs":
             self.branches[kw["json"]["ref"].split("refs/heads/")[1]] = {}; return {}
         if method == "GET" and path.startswith("/contents/"):
@@ -415,6 +422,32 @@ def test_pr_not_allowed_falls_back_to_branch_link():
     eng.sync()
     assert labels(f) == [cfg["github"]["labels"]["spec_review"]]
     assert "compare/main...spec/issue-7?expand=1" in f.broadcasts[-1] and "spec/issue-7" in f.branches
+
+
+def test_spec_push_failure_leaves_issue_untouched_and_retries():
+    cfg, f, eng = setup()
+    eng.kickoff(7)
+    f.say(PO, "rest ok")
+    propose(f, specs=f"=== FILE: specs/tracking/check-in.md ===\n{new_spec('tracking/check-in', 'Check-in')}=== END FILE ===")
+    eng.sync()
+    f.say(PO, "approved")
+    body, n_comments = f.issue["body"], len(f.comments)
+    real = f.gh
+
+    def failing(method, path, **kw):
+        if method == "PUT" and path.startswith("/contents/"):  # fails after the branch was created
+            raise RuntimeError("500 boom")
+        return real(method, path, **kw)
+    eng.gh = failing
+    eng.sync()  # error logged, nothing changed on the issue
+    assert f.issue["body"] == body and len(f.comments) == n_comments
+    assert labels(f) == [cfg["github"]["labels"]["active"]]
+    assert "spec/issue-7" in f.branches  # half-done branch left behind
+    eng.gh = real
+    eng.sync()  # next run replaces the branch and succeeds
+    assert labels(f) == [cfg["github"]["labels"]["spec_review"]] and len(f.pulls) == 1
+    assert "specs/tracking/check-in.md" in f.branches["spec/issue-7"]
+    assert sum(c.startswith("✅ Approved by") for c in f.comments) == 1  # issue updated exactly once
 
 
 def test_spec_merged_ignores_other_prs():

@@ -315,9 +315,14 @@ class Refinement:
     # ---------- approval -> issue + living spec ----------
 
     def write_back(self, issue, channel, root, final, spec_blocks):
+        """Approved: push the spec changes first (the step that can fail), then update the issue."""
         n, original = issue["number"], issue.get("body") or ""
         approver = self.user_name(self.approver)
         g, labels = self.gh_text, self.labels
+        thread_link = self.permalink(channel, root)
+        updates = spec_store.parse_updates(spec_blocks, self.sp["file_pattern"], self.sp["required_fields"])
+        spec = self.push_spec(issue, updates, approver, thread_link) if updates else None
+
         final = final.replace(g["approved_pending"],
                               g["approved_by"].format(approver=approver, date=time.strftime("%Y-%m-%d")))
         summary = f"<summary>{g['original_request']}</summary>"
@@ -325,19 +330,24 @@ class Refinement:
         # re-refined issue: keep the very first request; otherwise the current body is the original
         block = kept.group(0) if kept else f"<details>{summary}\n\n{original}\n\n</details>"
         self.gh("PATCH", f"/issues/{n}", json={"body": final + f"\n\n---\n{block}"})
-        thread_link = self.permalink(channel, root)
         self.comment(n, g["approved"].format(approver=approver, link=thread_link))
 
-        updates = spec_store.parse_updates(spec_blocks, self.sp["file_pattern"], self.sp["required_fields"])
-        if not updates:  # nothing lasting to record: ready right away
+        if not spec:  # nothing lasting to record: ready right away
             self.swap_label(n, remove=[labels["active"], labels["blocked"]], add=[labels["ready"]])
             self.post(self.slack_text["done"].format(number=n, url=issue["html_url"]), thread_ts=root)
             self.log(f"#{n}: approved, no spec change, ready")
             return
-        self.publish_spec(issue, root, updates, approver, thread_link)
+        issue_comment, slack_msg = spec
+        self.comment(n, issue_comment)
+        self.swap_label(n, remove=[labels["active"], labels["blocked"]], add=[labels["spec_review"]])
+        self.post(slack_msg, thread_ts=root, broadcast=self.cfg["slack"].get("broadcast_spec_pr", False))
+        self.log(f"#{n}: approved, spec review")
 
-    def publish_spec(self, issue, root, updates, approver, thread_link):
-        """Commit the spec changes + regenerated indexes on a branch and open a PR for review."""
+    def branch_exists(self, branch):
+        return bool(self.gh("GET", f"/git/ref/heads/{branch}", missing_ok=True))
+
+    def push_spec(self, issue, updates, approver, thread_link):
+        """Commit spec changes + regenerated indexes on a branch, open a PR. Returns (comment, slack)."""
         n, g, base = issue["number"], self.gh_text, self.cfg["github"]["base_branch"]
         branch = f"{self.sp['branch_prefix']}{n}"
         merged = spec_store.merge(self.load_specs(), updates)
@@ -347,7 +357,8 @@ class Refinement:
         message = g["spec_commit"].format(number=n, title=issue["title"])
 
         head = self.gh("GET", f"/git/ref/heads/{base}")["object"]["sha"]
-        self.gh("DELETE", f"/git/refs/heads/{branch}")  # re-approval replaces an older spec branch
+        if self.branch_exists(branch):  # re-approval replaces an older spec branch (and its PR)
+            self.gh("DELETE", f"/git/refs/heads/{branch}")
         self.gh("POST", "/git/refs", json={"ref": f"refs/heads/{branch}", "sha": head})
         for path, content in files.items():
             current = self.gh("GET", f"/contents/{path}?ref={branch}", missing_ok=True)
@@ -365,16 +376,13 @@ class Refinement:
                 "title": g["spec_pr_title"].format(**fields), "head": branch, "base": base,
                 "body": g["spec_pr_body"].format(thread_link=thread_link,
                                                  **{**fields, "files": "\n".join(f"- `{p}`" for p in files)})})
-            self.comment(n, g["spec_pr_opened"].format(pr_url=pr["html_url"], **fields))
-            slack_msg = self.slack_text["spec_pr"].format(pr_url=pr["html_url"], pr_number=pr["number"], **fields)
+            return (g["spec_pr_opened"].format(pr_url=pr["html_url"], **fields),
+                    self.slack_text["spec_pr"].format(pr_url=pr["html_url"], pr_number=pr["number"], **fields))
         except Exception as e:  # e.g. Actions not allowed to open pull requests: hand over the branch
             self.log(f"::warning::spec PR not opened: {e}; pushed {branch}")
             compare = issue["html_url"].split("/issues/")[0] + f"/compare/{base}...{branch}?expand=1"
-            self.comment(n, g["spec_branch_pushed"].format(branch=branch, compare_url=compare, **fields))
-            slack_msg = self.slack_text["spec_branch"].format(branch=branch, compare_url=compare, **fields)
-        self.swap_label(n, remove=[self.labels["active"], self.labels["blocked"]], add=[self.labels["spec_review"]])
-        self.post(slack_msg, thread_ts=root, broadcast=self.cfg["slack"].get("broadcast_spec_pr", False))
-        self.log(f"#{n}: approved, spec review on {branch}")
+            return (g["spec_branch_pushed"].format(branch=branch, compare_url=compare, **fields),
+                    self.slack_text["spec_branch"].format(branch=branch, compare_url=compare, **fields))
 
     def spec_merged(self, pr_number):
         """A merged spec PR makes its issue ready for development."""
@@ -393,5 +401,6 @@ class Refinement:
         thread = self.thread_of(self.gh("GET", f"/issues/{n}/comments?per_page=100"))
         if thread:
             self.post(self.slack_text["done"].format(number=n, url=issue["html_url"]), thread_ts=thread[1])
-        self.gh("DELETE", f"/git/refs/heads/{ref}")
+        if self.branch_exists(ref):  # may already be auto-deleted on merge
+            self.gh("DELETE", f"/git/refs/heads/{ref}")
         self.log(f"#{n}: spec merged, ready for dev")
