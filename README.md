@@ -21,6 +21,13 @@ GitHub issue ◄── body updated, label: ready-for-dev ── Claude writes b
 
 Full playbook: [docs/refinement-workflow.md](docs/refinement-workflow.md)
 
+## Automation
+
+It runs on its own through GitHub Actions: labelling an issue `needs-refinement` starts
+the Slack thread within a minute, and a sync job every 10 minutes handles replies,
+the proposal and the ✅ write-back. One-time setup (Slack app + 2 secrets):
+[docs/automation-setup.md](docs/automation-setup.md)
+
 ## Use it
 
 1. Open an issue with the **Requirement** template (it adds `needs-refinement`).

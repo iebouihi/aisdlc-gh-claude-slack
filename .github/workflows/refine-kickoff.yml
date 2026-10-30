@@ -1,0 +1,36 @@
+name: Refinement kickoff
+
+# An issue gets the needs-refinement label -> Claude opens a refinement thread in Slack.
+on:
+  issues:
+    types: [opened, labeled]
+
+concurrency:
+  group: refine-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  kickoff:
+    if: >-
+      (github.event.action == 'labeled' && github.event.label.name == 'needs-refinement') ||
+      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'needs-refinement'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install anthropic requests
+      - name: Open refinement thread
+        run: python .github/scripts/refine.py kickoff ${{ github.event.issue.number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID || 'C0CDNGE90V7' }}
+          SLACK_APPROVER_ID: ${{ vars.SLACK_APPROVER_ID || 'U0CEESZR9A4' }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}

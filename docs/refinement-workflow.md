@@ -15,6 +15,9 @@ Humans can read it to know what to expect; Claude reads it before every run.
 - **Slack channel:** `#claude-app` (one thread per issue)
 - **Approver:** the PO (`@Imad Eddine B`)
 
+Automation: `refine-kickoff.yml` runs step 2 the moment the label is added;
+`refine-sync.yml` runs steps 3–7 every 10 minutes. See `docs/automation-setup.md`.
+
 ## States (GitHub labels)
 
 ```

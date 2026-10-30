@@ -1,0 +1,20 @@
+display_information:
+  name: Claude Refinement
+  description: Refines GitHub requirements with the team and writes the approved result back.
+  background_color: "#1d1d1d"
+features:
+  bot_user:
+    display_name: Claude
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write          # post kick-offs, questions, proposals
+      - channels:history    # read replies in the refinement thread
+      - groups:history      # same, if the channel is private
+      - reactions:read      # see the approver's ✅
+      - users:read          # show names in the transcript and approval comment
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
