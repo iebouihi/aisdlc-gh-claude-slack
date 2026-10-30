@@ -64,13 +64,17 @@ def ask_claude(instruction, tool):
               "(a small static Next.js habit tracker, browser storage only). Follow this playbook exactly.\n\n"
               + playbook +
               "\n\nWrite Slack text in Slack mrkdwn (*bold*, _italic_, <url|label>), never **double asterisks**.")
-    msg = anthropic.Anthropic().messages.create(
-        model=MODEL, max_tokens=4000, system=system, tools=[tool],
-        tool_choice={"type": "tool", "name": tool["name"]},
-        messages=[{"role": "user", "content": instruction}])
-    for block in msg.content:
-        if block.type == "tool_use":
-            return block.input
+    # Forced tool_choice isn't supported by every model, so ask for the tool call and retry once.
+    client = anthropic.Anthropic()
+    messages = [{"role": "user", "content": instruction + f"\n\nRespond only by calling the `{tool['name']}` tool."}]
+    for _ in range(2):
+        msg = client.messages.create(model=MODEL, max_tokens=8000, system=system, tools=[tool],
+                                     tool_choice={"type": "auto"}, messages=messages)
+        for block in msg.content:
+            if block.type == "tool_use" and block.name == tool["name"]:
+                return block.input
+        messages += [{"role": "assistant", "content": msg.content},
+                     {"role": "user", "content": f"Please call the `{tool['name']}` tool now with your answer."}]
     raise RuntimeError("Claude returned no structured output")
 
 
