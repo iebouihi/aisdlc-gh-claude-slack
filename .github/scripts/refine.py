@@ -266,7 +266,8 @@ def sync_issue(issue, bot):
     bot_ts = [float(m["ts"]) for m in msgs if is_bot(m)]
     last_bot = max(bot_ts, default=0.0)
     new_human = [m for m in msgs if not is_bot(m) and float(m["ts"]) > last_bot]
-    proposals = [(ts, body) for c in comments for ts, body in PROPOSAL_RE.findall(c["body"])]
+    # only proposals made in the current thread (an issue can be re-refined in a new thread)
+    proposals = [(ts, body) for c in comments for ts, body in PROPOSAL_RE.findall(c["body"]) if float(ts) > float(root)]
     proposal = proposals[-1] if proposals else None
 
     # Step 5/6: latest bot message is the proposal -> approved by a ✅ reaction, or by an approval reply
