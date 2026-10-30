@@ -1,36 +1,85 @@
 """Offline tests: the whole refinement loop with fake GitHub, Slack and Claude,
-using the real agent, skills and config.
+using the real agent, skills and config, and living specs in a temporary folder.
 
 Run: python -m automation.tests.test_refinement   (or: pytest automation/tests)
 """
 import ast
+import base64
 import re
+import tempfile
 import time
 from pathlib import Path
 
 from automation.refinement import catalog, config
+from automation.refinement import specs as spec_store
 from automation.refinement.engine import Refinement, normalize
 from automation.refinement.questions import parse_questions
 
 PKG = Path(__file__).resolve().parents[1] / "refinement"
 BOT, PO, DEV = "UBOT", "UPO", "UDEV"
 
+HABIT_SPEC = """---
+id: habits/habit-management
+title: Habit management
+module: habits
+summary: Create, list, edit and delete habits; stored in localStorage.
+entities: [Habit]
+status: active
+issues: [1]
+updated: 2026-10-30
+---
+# Habit management
 
-def make_cfg():
-    return config.load(env={"SLACK_CHANNEL_ID": "C1", "SLACK_APPROVER_ID": PO, "GITHUB_REPOSITORY": "x/y"})
+## Current behaviour
+- A habit has a name; names are unique (case-insensitive).
+
+## Decisions
+| ID | Decision | Since | Source |
+|---|---|---|---|
+| D1 | Habit = name only | #1 | thread |
+| ~~D2~~ | ~~Max 20 habits~~ → superseded by D3 (#5) | #1 | thread |
+| D3 | No habit limit | #5 | thread |
+
+## Data
+- Habit {id, name, createdAt} in localStorage key habits.v1
+
+## Not covered
+- Check-ins
+
+## History
+- 2026-10-30 #1: created
+"""
+
+THEME_SPEC = HABIT_SPEC.replace("habits/habit-management", "settings/theme").replace("module: habits", "module: settings") \
+    .replace("Habit management", "Theme").replace("entities: [Habit]", "entities: [Preference]")
+
+
+def new_spec(path_id, title, extra=""):
+    module = path_id.split("/")[0]
+    return (f"---\nid: {path_id}\ntitle: {title}\nmodule: {module}\nsummary: {title} today.\n"
+            f"entities: [CheckIn]\nstatus: active\nissues: [7]\nupdated: 2026-10-30\n---\n# {title}\n\n"
+            f"## Decisions\n| ID | Decision | Since | Source |\n|---|---|---|---|\n| D1 | One check-in per day{extra} | #7 | thread |\n")
+
+
+def make_cfg(**specs_overrides):
+    cfg = config.load(env={"SLACK_CHANNEL_ID": "C1", "SLACK_APPROVER_ID": PO, "GITHUB_REPOSITORY": "x/y"})
+    cfg["specs"].update(specs_overrides)
+    return cfg
 
 
 class Fake:
     def __init__(self, cfg):
         lb = cfg["github"]["labels"]
-        self.issue = {"number": 7, "title": "[REQ] Create and manage habits", "state": "open",
-                      "html_url": "https://github.com/x/y/issues/7", "body": "Users add habits.",
+        self.issue = {"number": 7, "title": "[REQ] Daily check-in", "state": "open",
+                      "html_url": "https://github.com/x/y/issues/7", "body": "Users check habits off daily.",
                       "labels": [{"name": lb["needs"]}]}
         self.comments, self.thread, self.reactions, self.calls = [], [], {}, []
-        self.next_answer = None
+        self.branches, self.files, self.pulls, self.broadcasts = {}, {}, {}, []
+        self.next_answer, self.selection, self.pr_fails = None, [], False
         self.clock = time.time() - 3600
 
-    def gh(self, method, path, **kw):
+    # --- GitHub ---
+    def gh(self, method, path, missing_ok=False, **kw):
         if method == "GET" and path == "/issues/7":
             return self.issue
         if method == "GET" and path.startswith("/issues?labels="):
@@ -47,8 +96,32 @@ class Fake:
             self.issue["labels"] = [l for l in self.issue["labels"] if l["name"] != name]; return {}
         if method == "PATCH" and path == "/issues/7":
             self.issue.update(kw["json"]); return {}
+        if method == "GET" and path.startswith("/git/ref/heads/"):
+            return {"object": {"sha": "base-sha"}}
+        if method == "DELETE" and path.startswith("/git/refs/heads/"):
+            self.branches.pop(path.split("/git/refs/heads/")[1], None); return None
+        if method == "POST" and path == "/git/refs":
+            self.branches[kw["json"]["ref"].split("refs/heads/")[1]] = {}; return {}
+        if method == "GET" and path.startswith("/contents/"):
+            p, branch = path[len("/contents/"):].split("?ref=")
+            assert missing_ok
+            return {"sha": "s"} if p in self.branches.get(branch, {}) else None
+        if method == "PUT" and path.startswith("/contents/"):
+            body = kw["json"]
+            self.branches[body["branch"]][path[len("/contents/"):]] = base64.b64decode(body["content"]).decode()
+            return {}
+        if method == "POST" and path == "/pulls":
+            if self.pr_fails:
+                raise RuntimeError("403 GitHub Actions is not permitted to create pull requests")
+            num = 100 + len(self.pulls)
+            self.pulls[num] = {"number": num, "html_url": f"https://github.com/x/y/pull/{num}", "merged": False,
+                               "head": {"ref": kw["json"]["head"]}, "title": kw["json"]["title"]}
+            return self.pulls[num]
+        if method == "GET" and path.startswith("/pulls/"):
+            return self.pulls[int(path.rsplit("/", 1)[1])]
         raise AssertionError(f"unexpected GitHub call {method} {path}")
 
+    # --- Slack ---
     def say(self, user, text):
         self.clock += 1
         m = {"ts": f"{self.clock:.6f}", "user": user, "text": text}
@@ -59,6 +132,8 @@ class Fake:
 
     def slack(self, method, **p):
         if method == "chat.postMessage":
+            if p.get("reply_broadcast"):
+                self.broadcasts.append(p["text"])
             return {"ts": self.say(BOT, p["text"])}
         if method == "chat.getPermalink":
             return {"permalink": f"https://slack/p{p['message_ts']}"}
@@ -72,25 +147,41 @@ class Fake:
             return {"user": {"real_name": {PO: "Imad (PO)", DEV: "Sara (dev)"}.get(p["user"], p["user"])}}
         raise AssertionError(f"unexpected Slack call {method}")
 
+    # --- Claude ---
     def claude(self, system, task, tool):
         self.calls.append((system, task, tool))
+        if tool["name"] == "select_context":
+            pick = self.selection.pop(0) if self.selection else ""
+            return {"selected": pick}
         if tool["name"] == "kickoff":
-            return {"restatement": "Users can add, edit and delete habits.",
-                    "questions": "Scope :: Which fields? :: Name + emoji.\nData :: Storage? :: localStorage.\n"
-                                 "UX :: Empty state? :: Prompt + Add button."}
+            return {"restatement": "Users check habits off once a day.",
+                    "questions": "Scope :: Which fields? :: Date only.\nData :: Storage? :: localStorage.\n"
+                                 "UX :: Empty state? :: Prompt."}
         return self.next_answer
 
 
-def setup():
-    cfg = make_cfg()
+def setup(spec_files=None, **specs_overrides):
+    cfg = make_cfg(**specs_overrides)
     f = Fake(cfg)
+    root = Path(tempfile.mkdtemp())
+    for path, content in (spec_files or {}).items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(content)
     agent = catalog.load_agent(cfg["claude"]["agent"])
-    eng = Refinement(cfg, agent, f.gh, f.slack, f.claude, log=lambda *_: None, now=lambda: f.clock)
+    eng = Refinement(cfg, agent, f.gh, f.slack, f.claude, log=lambda *_: None, now=lambda: f.clock, root=root)
     return cfg, f, eng
 
 
 def labels(f):
     return sorted(l["name"] for l in f.issue["labels"])
+
+
+def tools_called(f):
+    return [c[2]["name"] for c in f.calls]
+
+
+def propose(f, final="## Summary\nCheck-ins.\n\n## Refinement trace\n- Approved by: (pending)", specs="", slack="Summary: check-ins"):
+    f.next_answer = {"action": "propose", "final_requirement": final, "slack_message": slack, "spec_updates": specs}
 
 
 # ---------- the agent and skills are the instructions ----------
@@ -99,15 +190,28 @@ def test_agent_and_skills_load_as_claude_code_files():
     cfg = make_cfg()
     agent = catalog.load_agent(cfg["claude"]["agent"])
     assert agent.name == "requirements-refiner" and agent.description
-    names = [s.name for s in agent.skills]
-    assert names == ["refine-kickoff", "refine-thread", "requirement-format"], names
-    for step, skill_name in cfg["claude"]["skills"].items():
-        skill = agent.skill(skill_name)
+    assert [s.name for s in agent.skills] == \
+        ["impact-analysis", "refine-kickoff", "refine-thread", "requirement-format", "living-spec"]
+    for step, conf in cfg["claude"]["steps"].items():
+        skill = agent.skill(conf["skill"])
         assert skill.description and skill.tool and skill.tool["input_schema"]["type"] == "object", step
+        for used in conf["uses"]:
+            agent.skill(used)
+    analyst = catalog.load_agent("impact-analyst")
+    assert [s.name for s in analyst.skills] == ["impact-analysis", "living-spec"]
     system = agent.system_prompt(arguments="7")
-    for s in agent.skills:
-        assert s.body.splitlines()[0] in system
     assert "$ARGUMENTS" not in system and "gh issue view 7" in system
+
+
+def test_each_step_loads_only_its_skills():
+    cfg = make_cfg()
+    agent = catalog.load_agent(cfg["claude"]["agent"])
+    full = agent.system_prompt()
+    select = agent.system_prompt(only=["impact-analysis"])
+    thread = agent.system_prompt(only=["refine-thread", "requirement-format", "living-spec"])
+    assert "# Impact analysis" in select and "# Living specs" not in select and "# Final requirement" not in select
+    assert "# Decide the next step" in thread and "# Impact analysis" not in thread
+    assert len(select) < len(thread) < len(full)
 
 
 def test_no_instructions_hardcoded_in_python():
@@ -128,13 +232,85 @@ def test_no_instructions_hardcoded_in_python():
 
 def test_config_texts_have_known_placeholders():
     cfg = make_cfg()
-    allowed = {"number", "title", "url", "restatement", "group", "index", "question", "default", "body",
-               "link", "approver", "date", "product", "groups", "issue", "thread_link", "transcript", "tool"}
-    texts = list(cfg["messages"]["slack"].values()) + list(cfg["messages"]["github"].values()) + \
-        list(cfg["tasks"].values())
+    allowed = {"number", "title", "url", "restatement", "group", "index", "question", "default", "body", "link",
+               "approver", "date", "product", "groups", "issue", "thread_link", "transcript", "tool", "specs",
+               "context", "limit", "level", "files", "pr_url", "pr_number", "branch", "compare_url", "ready",
+               "module", "count", "entities", "titles", "id", "summary", "file", "decisions", "issues", "path",
+               "content"}
+    texts = [v for section in (cfg["messages"]["slack"], cfg["messages"]["github"], cfg["tasks"],
+                               cfg["specs"]["generated"]) for v in section.values()]
     for t in texts:
         unknown = set(re.findall(r"{(\w+)}", t)) - allowed
         assert not unknown, (t, unknown)
+
+
+# ---------- spec store ----------
+
+def test_spec_store_validation_and_indexes():
+    cfg = make_cfg()
+    sp = cfg["specs"]
+    good = spec_store.parse_updates(
+        f"=== FILE: specs/tracking/check-in.md ===\n{new_spec('tracking/check-in', 'Check-in')}=== END FILE ===",
+        sp["file_pattern"], sp["required_fields"])
+    assert [u.path for u in good] == ["specs/tracking/check-in.md"]
+    for bad in ["=== FILE: ../etc/passwd.md ===\n---\nid: x\n---\n=== END FILE ===",
+                "=== FILE: specs/README.md ===\n# x\n=== END FILE ===",
+                f"=== FILE: specs/tracking/check-in.md ===\n{new_spec('tracking/other', 'X')}=== END FILE ===",
+                "=== FILE: specs/tracking/check-in.md ===\n---\nid: tracking/check-in\n---\nbody\n=== END FILE ==="]:
+        try:
+            spec_store.parse_updates(bad, sp["file_pattern"], sp["required_fields"])
+            raise AssertionError(f"accepted: {bad[:40]}")
+        except ValueError:
+            pass
+    _, _, eng = setup({"specs/habits/habit-management.md": HABIT_SPEC})
+    specs = eng.load_specs()
+    files = spec_store.generated_files(spec_store.merge(specs, good), sp["generated"], "app")
+    assert set(files) == {"specs/README.md", "specs/habits/README.md", "specs/tracking/README.md"}
+    assert "decisions: 2" in files["specs/habits/README.md"]  # struck-through D2 not counted
+    assert "[tracking](tracking/README.md)" in files["specs/README.md"]
+
+
+# ---------- context selection ----------
+
+def test_kickoff_uses_selected_specs_as_context():
+    cfg, f, eng = setup({"specs/habits/habit-management.md": HABIT_SPEC, "specs/settings/theme.md": THEME_SPEC})
+    f.selection = ["habits/habit-management :: check-ins reference Habit.id\nnot/a-spec :: hallucinated"]
+    eng.kickoff(7)
+    assert tools_called(f) == ["select_context", "kickoff"]
+    select_task, kickoff_task = f.calls[0][1], f.calls[1][1]
+    assert "habits/habit-management | Habit management" in select_task and "settings/theme" in select_task
+    assert "Habit = name only" in kickoff_task and "# Theme" not in kickoff_task  # only the chosen spec
+    assert "`specs/habits/habit-management.md`" in f.thread[0]["text"]
+    assert "<!-- context: specs/habits/habit-management.md -->" in f.comments[-1]
+    # the thread step gets the same specs, re-read fresh
+    f.say(PO, "rest ok")
+    f.next_answer = {"action": "wait"}
+    eng.sync()
+    assert "Habit = name only" in f.calls[-1][1] and f.calls[-1][2]["name"] == "next_step"
+
+
+def test_two_stage_selection_when_index_is_large():
+    cfg, f, eng = setup({"specs/habits/habit-management.md": HABIT_SPEC, "specs/settings/theme.md": THEME_SPEC},
+                        index_chars=10)
+    f.selection = ["habits :: same entity", "habits/habit-management :: Habit.id"]
+    eng.kickoff(7)
+    assert tools_called(f) == ["select_context", "select_context", "kickoff"]
+    assert "habits | 1 capabilities" in f.calls[0][1]  # modules first
+    assert "habits/habit-management" in f.calls[1][1] and "settings/theme" not in f.calls[1][1]
+
+
+def test_no_specs_means_no_selection_call():
+    cfg, f, eng = setup()
+    eng.kickoff(7)
+    assert tools_called(f) == ["kickoff"]
+    assert cfg["specs"]["generated"]["context_none"] in f.calls[0][1]
+
+
+def test_context_budget_is_enforced():
+    cfg, f, eng = setup({"specs/habits/habit-management.md": HABIT_SPEC, "specs/settings/theme.md": THEME_SPEC},
+                        context_chars=len(HABIT_SPEC) + 100)
+    text = eng.context_text(["specs/habits/habit-management.md", "specs/settings/theme.md"])
+    assert "# Habit management" in text and "# Theme" not in text
 
 
 # ---------- parsing ----------
@@ -151,63 +327,101 @@ def test_question_parsing():
 
 # ---------- the loop ----------
 
-def test_full_loop():
-    cfg, f, eng = setup()
+def test_full_loop_with_living_spec_pr():
+    cfg, f, eng = setup({"specs/habits/habit-management.md": HABIT_SPEC})
     lb = cfg["github"]["labels"]
-
+    f.selection = ["habits/habit-management :: Habit.id"]
     eng.kickoff(7)
     assert labels(f) == [lb["active"]]
-    assert "Refinement: #7" in f.thread[0]["text"] and "1. Which fields?" in f.thread[1]["text"]
-    system, task, tool = f.calls[-1]
-    assert "requirements refiner" in system and "Use your refine-kickoff skill" in task
-    assert "Users add habits." in task and tool["name"] == "kickoff"
     eng.kickoff(7)  # duplicate trigger ignored
     assert len(f.thread) == 2
 
     n = len(f.calls)
     eng.sync()  # no replies: Claude not called
-    assert len(f.calls) == n and len(f.thread) == 2
+    assert len(f.calls) == n
 
-    f.say(DEV, "1: name only, no emoji")
-    f.say(PO, "1: we need emoji. rest ok")
-    f.next_answer = {"action": "follow_up", "slack_message": "Q1 conflict: emoji or not?"}
+    f.say(DEV, "1: date only")
+    f.say(PO, "1: date and time. rest ok")
+    f.next_answer = {"action": "follow_up", "slack_message": "Q1 conflict: date or date+time?"}
     eng.sync()
-    assert f.thread[-1]["text"] == "Q1 conflict: emoji or not?"
-    assert "[Sara (dev)] 1: name only" in f.calls[-1][1] and f.calls[-1][2]["name"] == "next_step"
+    assert f.thread[-1]["text"] == "Q1 conflict: date or date+time?"
 
-    f.say(DEV, "ok, emoji optional")
-    final = f"## Summary\nHabits CRUD.\n\n## Refinement trace\n- {cfg['messages']['github']['approved_pending']}"
-    f.next_answer = {"action": "propose", "final_requirement": final,
-                     "slack_message": ":clipboard: *PROPOSED FINAL REQUIREMENT* - #7\nSummary: habits CRUD\n"
-                                      "React :white_check_mark: to approve, or reply with changes."}
+    f.say(DEV, "date only is fine")
+    edited = HABIT_SPEC.replace("## History", "## History\n- 2026-10-30 #7: Habit.id used by check-ins")
+    blocks = (f"=== FILE: specs/tracking/check-in.md ===\n{new_spec('tracking/check-in', 'Check-in')}=== END FILE ===\n"
+              f"=== FILE: specs/habits/habit-management.md ===\n{edited}=== END FILE ===")
+    propose(f, specs=blocks, slack=":clipboard: *PROPOSED FINAL REQUIREMENT*\nSummary: check-ins\n*Living spec changes*\n• new tracking/check-in")
     eng.sync()
-    prop_ts = f.thread[-1]["ts"]
-    assert f.thread[-1]["text"].count("PROPOSED FINAL REQUIREMENT") == 1  # Claude's copy stripped
-    assert "Summary: habits CRUD" in f.thread[-1]["text"] and f"<!-- proposal: {prop_ts} {prop_ts} -->" in f.comments[-1]
+    prop = f.thread[-1]["text"]
+    assert prop.count("PROPOSED FINAL REQUIREMENT") == 1 and "Living spec changes" in prop
+    assert "<!-- specs-start -->" in f.comments[-1]
 
-    f.reactions[prop_ts] = [{"name": "white_check_mark", "users": [DEV]}]  # not the approver
-    eng.sync()
-    assert labels(f) == [lb["active"]]
-
-    f.say(PO, "add: max 20 habits")  # change request -> Claude
-    f.next_answer = {"action": "propose", "slack_message": "Summary v2", "final_requirement": final + "\n- max 20"}
-    eng.sync()
-    assert "Summary v2" in f.thread[-1]["text"]
-
-    f.say(DEV, "approved")  # approval-like reply from a non-approver: not an approval
-    f.next_answer = {"action": "wait"}
+    f.reactions[f.thread[-1]["ts"]] = [{"name": "white_check_mark", "users": [DEV]}]  # not the approver
     eng.sync()
     assert labels(f) == [lb["active"]]
-    f.thread.pop()
 
-    f.say(PO, ":white_check_mark:")  # approver replies ✅
+    f.say(PO, "approved")
     n = len(f.calls)
     eng.sync()
     assert len(f.calls) == n, "approval must not go through Claude"
-    assert labels(f) == [lb["ready"]]
-    assert f.issue["body"].startswith("## Summary") and "max 20" in f.issue["body"]
-    assert "Approved by: Imad (PO) on" in f.issue["body"] and "Users add habits." in f.issue["body"]
-    assert f.comments[-1].startswith("✅ Approved by Imad (PO)") and "ready for dev" in f.thread[-1]["text"]
+    # issue body final, but not ready yet: spec PR first
+    assert f.issue["body"].startswith("## Summary\nCheck-ins.") and "Approved by: Imad (PO) on" in f.issue["body"]
+    assert labels(f) == [lb["spec_review"]]
+    branch = cfg["specs"]["branch_prefix"] + "7"
+    committed = f.branches[branch]
+    assert set(committed) == {"specs/tracking/check-in.md", "specs/habits/habit-management.md", "specs/README.md",
+                              "specs/habits/README.md", "specs/tracking/README.md"}
+    assert "Habit.id used by check-ins" in committed["specs/habits/habit-management.md"]
+    pr = f.pulls[100]
+    assert pr["head"]["ref"] == branch and "Living spec" in pr["title"]
+    assert any(pr["html_url"] in c for c in f.comments)
+    assert f.broadcasts and "Living spec update" in f.broadcasts[-1] and pr["html_url"] in f.broadcasts[-1]
+
+    pr["merged"] = True
+    eng.spec_merged(100)
+    assert labels(f) == [lb["ready"]] and "ready for dev" in f.thread[-1]["text"]
+    assert branch not in f.branches  # spec branch cleaned up
+
+
+def test_approval_without_spec_changes_is_ready_at_once():
+    cfg, f, eng = setup()
+    eng.kickoff(7)
+    f.say(PO, "rest ok")
+    propose(f)
+    eng.sync()
+    f.say(PO, ":white_check_mark:")
+    eng.sync()
+    assert labels(f) == [cfg["github"]["labels"]["ready"]] and not f.pulls
+
+
+def test_invalid_spec_update_posts_nothing():
+    cfg, f, eng = setup()
+    eng.kickoff(7)
+    f.say(PO, "rest ok")
+    propose(f, specs="=== FILE: specs/../../evil.md ===\nx\n=== END FILE ===")
+    before = len(f.thread)
+    eng.sync()  # error is caught per issue and logged; retried next run
+    assert len(f.thread) == before and not any("<!-- proposal" in c for c in f.comments)
+
+
+def test_pr_not_allowed_falls_back_to_branch_link():
+    cfg, f, eng = setup()
+    f.pr_fails = True
+    eng.kickoff(7)
+    f.say(PO, "rest ok")
+    propose(f, specs=f"=== FILE: specs/tracking/check-in.md ===\n{new_spec('tracking/check-in', 'Check-in')}=== END FILE ===")
+    eng.sync()
+    f.say(PO, "approved")
+    eng.sync()
+    assert labels(f) == [cfg["github"]["labels"]["spec_review"]]
+    assert "compare/main...spec/issue-7?expand=1" in f.broadcasts[-1] and "spec/issue-7" in f.branches
+
+
+def test_spec_merged_ignores_other_prs():
+    cfg, f, eng = setup()
+    f.pulls[5] = {"number": 5, "merged": True, "head": {"ref": "feature/x"}, "html_url": "u"}
+    eng.spec_merged(5)
+    assert labels(f) == [cfg["github"]["labels"]["needs"]]
 
 
 def test_approval_replies():
@@ -238,49 +452,46 @@ def test_long_proposal_split_and_approved():
     eng.kickoff(7)
     f.say(PO, "rest ok")
     long_slack = "\n".join(f"• AC{i}: given a habit, when something happens, then a precise result." for i in range(1, 120))
-    f.next_answer = {"action": "propose", "final_requirement": "## Summary\nbig", "slack_message": long_slack}
+    propose(f, slack=long_slack)
     eng.sync()
     parts = [m for m in f.thread if m["user"] == BOT][2:]
     assert len(parts) >= 3 and all(len(m["text"]) <= cfg["slack"]["max_message_chars"] for m in parts)
-    assert "AC1:" in parts[0]["text"] and "AC119:" in parts[-1]["text"]  # nothing lost, split at line breaks
+    assert "AC1:" in parts[0]["text"] and "AC119:" in parts[-1]["text"]
     n = len(f.calls)
     eng.sync()  # the extra parts don't count as a new bot message
-    assert len(f.calls) == n and cfg["github"]["labels"]["active"] in labels(f)
+    assert len(f.calls) == n
     f.reactions[parts[-1]["ts"]] = [{"name": "white_check_mark", "users": [PO]}]  # ✅ on any part
     eng.sync()
     assert labels(f) == [cfg["github"]["labels"]["ready"]]
 
 
-def test_proposal_split_by_slack_with_old_marker():
-    """The live case: one-ts marker, Slack split the message itself, approver replies 'approved'."""
+def test_signature_and_slack_split_proposal():
     cfg, f, eng = setup()
     eng.kickoff(7)
     first = f.say(BOT, "📋 PROPOSED FINAL REQUIREMENT part 1")
     f.say(BOT, "part 2")
     f.comments.append(f"<!-- proposal: {first} -->\nposted\n<!-- body-start -->\n## Summary\nlive\n<!-- body-end -->")
-    f.say(PO, "approved\n*Sent using* Claude")  # signature appended by the posting app
-    n = len(f.calls)
+    f.say(PO, "approved\n*Sent using* Claude")
     eng.sync()
-    assert len(f.calls) == n and labels(f) == [cfg["github"]["labels"]["ready"]]
-    assert f.issue["body"].startswith("## Summary\nlive")
+    assert labels(f) == [cfg["github"]["labels"]["ready"]] and f.issue["body"].startswith("## Summary\nlive")
 
 
 def test_rerefine_approved_issue():
     cfg, f, eng = setup()
     lb, g = cfg["github"]["labels"], cfg["messages"]["github"]
     f.issue["body"] = (f"## Summary\nv1\n\n---\n<details><summary>{g['original_request']}</summary>\n\n"
-                       "Users add habits.\n\n</details>")
+                       "Users check habits off daily.\n\n</details>")
     f.issue["labels"] = [{"name": lb["ready"]}, {"name": lb["needs"]}]
     eng.kickoff(7)
-    assert labels(f) == [lb["active"]]  # ready-for-dev cleared
+    assert labels(f) == [lb["active"]]
     f.say(PO, "rest ok")
-    f.next_answer = {"action": "propose", "final_requirement": "## Summary\nv2", "slack_message": "v2"}
+    propose(f, final="## Summary\nv2")
     eng.sync()
     f.say(PO, "approved")
     eng.sync()
     body = f.issue["body"]
     assert body.startswith("## Summary\nv2") and "v1" not in body
-    assert body.count("<details>") == 1 and "Users add habits." in body  # first request kept once
+    assert body.count("<details>") == 1 and "Users check habits off daily." in body
 
 
 def test_reopened_issue_ignores_old_proposal():
@@ -290,7 +501,7 @@ def test_reopened_issue_ignores_old_proposal():
     f.say(PO, "approved")
     f.next_answer = {"action": "follow_up", "slack_message": "Which questions?"}
     eng.sync()
-    assert cfg["github"]["labels"]["ready"] not in labels(f)  # old proposal not written back
+    assert cfg["github"]["labels"]["ready"] not in labels(f)
 
 
 if __name__ == "__main__":

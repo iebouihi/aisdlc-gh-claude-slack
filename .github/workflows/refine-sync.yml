@@ -14,7 +14,8 @@ concurrency:
 
 permissions:
   issues: write
-  contents: read
+  contents: write        # push the living spec branch
+  pull-requests: write   # open the living spec PR
 
 jobs:
   sync:

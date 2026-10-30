@@ -39,9 +39,15 @@ class Agent:
     body: str
     skills: list = field(default_factory=list)
 
-    def system_prompt(self, arguments=""):
-        """Agent body plus every preloaded skill, as Claude Code assembles a subagent."""
-        return SECTION_BREAK.join([self.body] + [s.render(arguments) for s in self.skills])
+    def system_prompt(self, arguments="", only=None):
+        """Agent body plus its preloaded skills, as Claude Code assembles a subagent.
+
+        `only` limits the skills to the ones a step needs (smaller, cacheable prompt per step).
+        """
+        skills = [s for s in self.skills if only is None or s.name in only]
+        if only is not None:
+            skills.sort(key=lambda s: list(only).index(s.name))
+        return SECTION_BREAK.join([self.body] + [s.render(arguments) for s in skills])
 
     def skill(self, name):
         for s in self.skills:

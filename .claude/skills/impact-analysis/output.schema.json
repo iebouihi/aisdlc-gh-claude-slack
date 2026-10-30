@@ -1,0 +1,14 @@
+{
+  "name": "select_context",
+  "description": "Return the modules or specs relevant to the issue.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "selected": {
+        "type": "string",
+        "description": "One line per choice: <id> :: <why>. Empty string if nothing is relevant."
+      }
+    },
+    "required": ["selected"]
+  }
+}

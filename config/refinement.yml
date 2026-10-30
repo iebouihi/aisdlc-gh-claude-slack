@@ -10,10 +10,12 @@ product:
 
 github:
   repo: iebouihi/aisdlc-gh-claude-slack          # (env: GITHUB_REPOSITORY)
+  base_branch: main
   labels:
     needs: needs-refinement      # added by the PO: start refinement
     active: in-refinement        # thread open in Slack
-    ready: ready-for-dev         # approved, issue body is final
+    spec_review: spec-review     # approved; living spec pull request waiting for merge
+    ready: ready-for-dev         # spec merged, issue body is final
     blocked: blocked             # no answers for too long
 
 slack:
@@ -22,14 +24,48 @@ slack:
   max_message_chars: 3500        # longer texts are split at line breaks into several messages
   # signatures some Slack clients/apps append to a reply; removed before reading replies (regexes)
   ignore_text_patterns: ["\\n*\\*?Sent using\\*? .*$"]
+  broadcast_spec_pr: true        # also show the spec PR announcement in the channel, not only the thread
 
 claude:
   model: claude-sonnet-5-5       # (env: CLAUDE_MODEL)
-  max_tokens: 8000
-  agent: requirements-refiner    # .claude/agents/<agent>.md, with the skills it lists
-  skills:
-    kickoff: refine-kickoff      # .claude/skills/<skill>/SKILL.md + output.schema.json
-    thread: refine-thread
+  max_tokens: 16000
+  cache_system_prompt: true      # prompt caching: agent + skills are identical across runs of a step
+  agent: requirements-refiner    # .claude/agents/<agent>.md
+  # Developers in Claude Code get every skill the agent preloads. The automation loads only
+  # what each step needs: the step's skill (whose output.schema.json is the answer) + `uses`.
+  steps:
+    select:
+      skill: impact-analysis
+      uses: []
+    kickoff:
+      skill: refine-kickoff
+      uses: [living-spec]
+    thread:
+      skill: refine-thread
+      uses: [requirement-format, living-spec]
+
+# Living specs: current behaviour, one file per capability (see the living-spec skill).
+specs:
+  dir: specs
+  file_pattern: '^specs/[a-z0-9-]+/[a-z0-9-]+\.md$'
+  required_fields: [id, title, module, summary, entities, status, issues, updated]
+  branch_prefix: spec/issue-     # approval pushes the spec changes to spec/issue-<n>
+  # context budgets: keep each Claude call small however many specs exist
+  max_specs: 5                   # specs loaded into a refinement
+  context_chars: 30000           # max characters of spec content per call
+  index_chars: 12000             # spec index larger than this -> pick modules first, then specs
+  generated:
+    root_title: "# Living specs"
+    root_intro: "How {product} works today, one file per capability. Generated from the specs' frontmatter; do not edit by hand."
+    module_line: "- [{module}]({module}/README.md): {count} capabilities. Entities: {entities}"
+    module_title: "# {module}"
+    module_intro: "Capabilities in this module. Generated; do not edit by hand."
+    capability_line: "- [{title}]({file}) `{id}`: {summary} (entities: {entities}; decisions: {decisions}; issues: {issues})"
+    empty: "No specs yet. They are created when the first requirement is approved."
+    index_module: "{module} | {count} capabilities | entities: {entities} | {titles}"
+    index_spec: "{id} | {title} | entities: {entities} | {summary}"
+    context_spec: "### {path}\n\n{content}"
+    context_none: "(no related living specs yet)"
 
 refinement:
   question_groups:
@@ -52,6 +88,15 @@ refinement:
 
 # What the automation asks Claude for each step ({...} are filled in by the automation).
 tasks:
+  select: |
+    Use your impact-analysis skill. Choose at most {limit} {level} this issue touches.
+
+    Product: {product}
+
+    {issue}
+
+    Available {level} (one per line):
+    {index}
   kickoff: |
     Use your refine-kickoff skill on this issue.
 
@@ -59,19 +104,30 @@ tasks:
     Question groups: {groups}
 
     {issue}
+
+    Related living specs:
+
+    {context}
   thread: |
     Use your refine-thread skill on this refinement.
 
     Product: {product}
     Thread link: {thread_link}
+    Today: {date}
 
     {issue}
+
+    Related living specs (current content):
+
+    {context}
 
     Slack thread so far:
 
     {transcript}
   tool_reminder: "Answer only by calling the `{tool}` tool."
   tool_retry: "Please call the `{tool}` tool now with your answer."
+  level_modules: modules
+  level_specs: specs
 
 # Every text the automation posts. Slack texts use Slack mrkdwn.
 messages:
@@ -83,6 +139,7 @@ messages:
       {restatement}
 
       Questions are in the thread 👇 Answer by number (e.g. "3: yes"). Each has a proposed default, so "ok" works too.
+    related_specs: "📚 Builds on living specs: {specs}"
     questions_header: "*Open questions for #{number}* (proposed default in _italics_)"
     question_group: "*{group}*"
     question: "{index}. {question}"
@@ -94,6 +151,14 @@ messages:
       {body}
 
       React ✅ or reply "approved" to approve, or reply with changes.
+    spec_pr: |-
+      📚 *Living spec update for review* - #{number} {title}
+      Approved by {approver}. The living specs are updated to match: {files}
+      <{pr_url}|Review and merge PR #{pr_number}> - #{number} becomes *ready for dev* when it is merged.
+    spec_branch: |-
+      📚 *Living spec update for review* - #{number} {title}
+      Approved by {approver}. The spec changes are on branch `{branch}`: {files}
+      <{compare_url}|Open the pull request> and merge it - #{number} becomes *ready for dev* then.
     nudge: '⏰ Friendly nudge: some questions above are still open. Answer by number, or "rest ok" to accept the defaults.'
     blocked: "🚧 No answers for a while - #{number} is now marked *blocked*. Reply here to resume."
     done: "✅ Done - #{number} is ready for dev: <{url}|issue #{number}>"
@@ -101,7 +166,20 @@ messages:
     thread_started: "Refinement started in Slack: {link}"
     proposal_posted: "Proposed final requirement posted for approval: {link}"
     proposal_details: "Proposed issue body"
+    proposal_specs: "Proposed living spec changes"
     approved: "✅ Approved by {approver} in Slack: {link}\n\nIssue body updated with the final requirement."
+    spec_pr_opened: "📚 Living spec update: {pr_url}\nThis issue becomes `{ready}` when the pull request is merged."
+    spec_branch_pushed: "📚 Living spec update pushed to `{branch}`. Open the pull request: {compare_url}\nThis issue becomes `{ready}` when it is merged."
+    spec_merged: "✅ Living spec merged in {pr_url}. Ready for development."
+    spec_pr_title: "Living spec: #{number} {title}"
+    spec_pr_body: |-
+      Updates the living specs for #{number}, approved by {approver} in Slack: {thread_link}
+
+      Files:
+      {files}
+
+      Merging marks #{number} as `{ready}`.
+    spec_commit: "Living spec: #{number} {title}"
     original_request: "Original request"
     approved_by: "Approved by: {approver} on {date}"
     approved_pending: "Approved by: (pending)"

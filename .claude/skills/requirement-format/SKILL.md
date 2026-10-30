@@ -29,6 +29,9 @@ As a <user>, I want <capability>, so that <benefit>.
 ## Open risks / follow-ups
 - <known risk or follow-up requirement>
 
+## Living spec
+- <specs/<module>/<capability>.md>: created | updated (<decision IDs added or superseded>)
+
 ## Refinement trace
 - Slack thread: <link>
 - Approved by: (pending)

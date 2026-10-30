@@ -1,53 +1,64 @@
-# Requirement Refinement Workflow (GitHub ⇄ Claude ⇄ Slack)
+# Requirement Refinement Workflow (GitHub ⇄ Claude ⇄ Slack ⇄ living specs)
 
-How a rough requirement for **good-habit-tracker** becomes an approved, testable one.
-This page is the process overview. The instructions Claude follows live in the agent and
-skill files, and every setting and message text lives in the config:
+How a rough requirement for **good-habit-tracker** becomes an approved, testable one, and how
+the product's shared context (`specs/`) stays true as requirements are approved.
 
 | What | Where |
 |---|---|
 | Who Claude is, its principles | `.claude/agents/requirements-refiner.md` |
-| How to open a refinement | `.claude/skills/refine-kickoff/SKILL.md` |
-| How to decide the next step in a thread | `.claude/skills/refine-thread/SKILL.md` |
-| The final requirement format | `.claude/skills/requirement-format/SKILL.md` |
-| Channel, approver, labels, groups, model, task prompts, all posted texts | `config/refinement.yml` |
-| Plumbing between GitHub, Slack and Claude | `automation/refinement/` |
+| Impact research for developers | `.claude/agents/impact-analyst.md` |
+| Find the specs an issue touches | `.claude/skills/impact-analysis/` |
+| Open a refinement | `.claude/skills/refine-kickoff/` |
+| Decide the next step in a thread | `.claude/skills/refine-thread/` |
+| Final requirement format | `.claude/skills/requirement-format/` |
+| Living spec format and update rules | `.claude/skills/living-spec/` |
+| How the product works today | `specs/` (one file per capability, generated indexes) |
+| Channel, approver, labels, budgets, model, prompts, all posted texts | `config/refinement.yml` |
+| Plumbing between GitHub, Slack, Claude and git | `automation/refinement/` |
 
-## Actors
-
-| Who | Role |
-|---|---|
-| Product Owner (PO) | Writes requirements as GitHub issues; the configured approver |
-| Team (dev, QA, design) | Answers questions in the Slack thread |
-| Claude (`requirements-refiner` agent) | Facilitates refinement, drafts the result |
-| Automation (GitHub Actions) | Runs the agent, posts to Slack, updates GitHub |
+## Two kinds of context
+- **Issues** are change requests and their history (discussion, status). There can be thousands.
+- **Living specs** describe current behaviour, one file per capability, with stable decision IDs.
+  They grow slowly, because an approved requirement *edits* the specs it touches.
+  Agents read specs, not the pile of issues.
 
 ## States (GitHub labels)
 
 ```
-needs-refinement ──► in-refinement ──► ready-for-dev
-                          │
-                          └──► blocked  (no answer after a nudge)
+needs-refinement ──► in-refinement ──► spec-review ──► ready-for-dev
+                          │            (spec PR open)   (spec PR merged)
+                          └──► blocked
 ```
 
-## Steps
+An issue with no lasting decision to record goes from `in-refinement` straight to `ready-for-dev`.
 
-1. **Intake.** The PO opens an issue with the *Requirement* template, which adds `needs-refinement`.
-2. **Kick-off** (`refine-kickoff`, instant). Claude restates the issue and asks numbered questions
-   with proposed defaults. The automation opens a thread in the channel, links it on the issue
-   and moves the issue to `in-refinement`.
-3. **Refinement** (`refine-thread`, every 10 min). On new replies Claude asks follow-ups about
-   gaps or conflicts. "ok" / "rest ok" accepts the remaining defaults.
-4. **Proposal.** When everything is answered, Claude drafts the final requirement in the
-   `requirement-format` format; it is posted in the thread and saved on the issue.
-5. **Approval.** Only the approver: a ✅ reaction on the proposal, or a reply that is only an
-   approval ("✅", "approved", "lgtm"). Any other reply is treated as a change request.
-   Approval is checked by the automation, never decided by Claude.
-6. **Write-back.** The issue body becomes the final requirement (original kept in a collapsed
-   block), a comment links the thread, the label becomes `ready-for-dev`, and the thread is told.
-7. **Nudge / blocked.** A quiet thread gets a nudge, then `blocked`; a new reply resumes it.
+## Steps
+1. **Intake.** The PO opens an issue with the *Requirement* template (adds `needs-refinement`).
+2. **Impact analysis** (`impact-analysis`). Claude picks the few related specs from a compact index.
+   With many specs it picks modules first, then specs inside them. Nothing else is loaded.
+3. **Kick-off** (`refine-kickoff`). Claude restates the issue, builds on existing decisions, and asks
+   explicitly about any decision the issue would change. The thread shows which specs it builds on.
+4. **Refinement** (`refine-thread`, every 10 min). Follow-ups on gaps and conflicts, with the
+   related specs re-read fresh each time. Changing an existing decision needs an explicit yes.
+5. **Proposal.** The final requirement plus the living spec changes: new spec files and edits
+   to existing ones (changed decisions superseded, never contradicted), listed in the Slack message.
+6. **Approval.** Only the approver: ✅ on the proposal, or a reply that is only an approval.
+   Checked by the automation, never decided by Claude.
+7. **Write-back + spec PR.** The issue body becomes the final requirement; the spec changes and
+   regenerated indexes are committed on `spec/issue-<n>` and a pull request is opened and
+   announced in Slack (thread and channel) as a living spec update. Label: `spec-review`.
+8. **Merge → ready.** Merging the spec PR marks the issue `ready-for-dev` and tells the thread.
+   From then on, every agent sees the new behaviour in `specs/`.
+9. **Nudge / blocked.** A quiet thread gets a nudge, then `blocked`; a new reply resumes it.
+
+## Keeping context small (scales to large repos)
+- Two-stage selection (modules, then specs) over generated indexes, never the whole tree.
+- Budgets in config: `specs.max_specs`, `specs.context_chars`, `specs.index_chars`.
+- Each step loads only its skills (`claude.steps`), and the system prompt is cached between runs.
+- The specs chosen at kick-off are remembered on the issue, so later steps don't select again.
+- Approval, merge, nudges and labels never call Claude.
 
 ## Rules
-- GitHub issue = source of truth; Slack = the reasoning.
-- The issue body changes only after approval.
-- Claude never invents decisions; every decision in the final requirement names who made it.
+- Specs = current truth; issues = change history; Slack = the reasoning.
+- The issue body changes only after approval; specs change only through a reviewed PR.
+- Claude never invents decisions; every decision names who made it and where.
