@@ -195,7 +195,7 @@ def sync():
         try:
             sync_issue(issue, bot)
         except Exception as e:  # one broken issue must not stop the others
-            print(f"::warning::#{issue['number']}: {e}")
+            print(f"::error title=Sync failed for #{issue['number']}::{type(e).__name__}: {e}".replace("\n", " "))
 
 
 def sync_issue(issue, bot):
@@ -292,4 +292,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:  # surface the reason as a GitHub annotation, not just "exit code 1"
+        detail = getattr(getattr(e, "response", None), "text", "") or ""
+        print(f"::error title=Refinement failed::{type(e).__name__}: {e} {detail[:500]}".replace("\n", " "))
+        raise
