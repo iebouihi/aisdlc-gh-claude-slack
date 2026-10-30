@@ -7,6 +7,7 @@ Usage:
 
 Follows docs/refinement-workflow.md (the playbook is also sent to Claude as its instructions).
 """
+import json
 import os
 import re
 import sys
@@ -145,6 +146,23 @@ KICKOFF_TOOL = {
 }
 
 
+def parse_questions(raw):
+    """Accept the question list as a list or as a JSON string; normalise each item."""
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = [line.strip() for line in raw.splitlines() if line.strip()]
+    result = []
+    for q in raw or []:
+        if isinstance(q, str):
+            q = {"question": q}
+        if isinstance(q, dict) and q.get("question"):
+            group = q.get("group") if q.get("group") in GROUPS else "Other"
+            result.append({"group": group, "question": str(q["question"]), "default": str(q.get("default") or "")})
+    return result
+
+
 def kickoff(n):
     issue = gh("GET", f"/issues/{n}")
     if NEEDS not in labels_of(issue) or issue["state"] != "open":
@@ -153,18 +171,24 @@ def kickoff(n):
     out = ask_claude("Open the refinement for this requirement. Ask only the questions that matter "
                      "for this issue, each with a sensible default.\n\n" + issue_text(issue), KICKOFF_TOOL)
 
-    parent = post(f"🧩 *Refinement: #{n} {issue['title']}*\n<{issue['html_url']}|View issue #{n} on GitHub>\n\n"
-                  f"{out['restatement']}\n\nQuestions are in the thread 👇 Answer by number (e.g. \"3: yes\"). "
-                  "Each has a proposed default, so \"ok\" works too.")
+    questions = parse_questions(out.get("questions"))
+    if not questions:
+        raise RuntimeError(f"Claude returned no usable questions: {str(out.get('questions'))[:300]}")
+
+    # Build everything before posting, so a failure never leaves a half-finished thread
     lines, i = [f"*Open questions for #{n}* (proposed default in _italics_)"], 0
-    for group in GROUPS:
-        qs = [q for q in out["questions"] if q["group"] == group]
+    for group in GROUPS + ["Other"]:
+        qs = [q for q in questions if q["group"] == group]
         if qs:
             lines.append(f"\n*{group}*")
         for q in qs:
             i += 1
-            lines.append(f"{i}. {q['question']} _{q['default']}_")
+            lines.append(f"{i}. {q['question']}" + (f" _{q['default']}_" if q["default"] else ""))
     lines.append("\nWhen these are settled I'll post a 📋 proposed final requirement for ✅.")
+
+    parent = post(f"🧩 *Refinement: #{n} {issue['title']}*\n<{issue['html_url']}|View issue #{n} on GitHub>\n\n"
+                  f"{out.get('restatement', '')}\n\nQuestions are in the thread 👇 Answer by number (e.g. \"3: yes\"). "
+                  "Each has a proposed default, so \"ok\" works too.")
     post("\n".join(lines), thread_ts=parent)
 
     comment(n, f"Refinement started in Slack: {permalink(CHANNEL, parent)}\n\n<!-- slack-thread: {CHANNEL}/{parent} -->")
