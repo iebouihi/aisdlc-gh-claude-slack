@@ -1,6 +1,6 @@
 ---
 updated: 2026-10-30
-issues: []
+issues: [7]
 ---
 # good-habit-tracker: code map
 
@@ -12,8 +12,10 @@ that changes structure, a convention or a module updates this file (see the `cod
 - Next.js (App Router) with **static export** (`output: "export"`): plain HTML/JS, no server,
   no API routes, no server actions. Everything runs in the browser.
 - React, TypeScript (strict). No state library; React state and small custom hooks.
-- Tests: Vitest + Testing Library (jsdom). `npm run check` = typecheck + tests + build.
-- Styling: one global stylesheet with CSS variables (`src/app/globals.css`), light and dark.
+- Tests: Vitest + Testing Library (jsdom). `npm run check` = lint + typecheck + tests + build.
+- Tooling: ESLint (`eslint-config-next`), Prettier (`npm run format`), Node 20 (`.nvmrc`, `engines`).
+- Styling: a global stylesheet with CSS variables (`src/app/globals.css`), light and dark, plus
+  CSS Modules per page/component (`*.module.css`). No Tailwind or UI library.
 
 ## Structure
 | Path | What lives there |
@@ -25,7 +27,9 @@ that changes structure, a convention or a module updates this file (see the `cod
 ## Modules
 | Module | Files | Spec |
 |---|---|---|
-| App shell | `src/app/layout.tsx`, `src/app/page.tsx` | - |
+| App shell | `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/page.module.css` | platform/app-foundation |
+| Storage helper | `src/lib/storage.ts` (`readJson`, `writeJson`, `HABITS_KEY` = `habits:v1`; return a `StorageResult`) | platform/app-foundation |
+| Setup checks | `src/lib/project-setup.test.ts` (config and dependency rules) | platform/app-foundation |
 
 ## Conventions
 - **Domain logic is pure** and lives in `src/lib/` (validation, sorting, IDs, dates), tested
@@ -39,6 +43,7 @@ that changes structure, a convention or a module updates this file (see the `cod
 - **Accessibility is not optional:** labelled controls, keyboard operation, visible focus,
   errors announced (`role="alert"` or `aria-describedby`), WCAG AA contrast.
 - Client components start with `"use client"` only where they need state or effects.
+- Runtime dependencies are only `next`, `react`, `react-dom` (enforced by a test).
 - No new runtime dependency without a reason in the PR description.
 
 ## Decisions
