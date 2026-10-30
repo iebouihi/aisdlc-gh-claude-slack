@@ -47,7 +47,7 @@ def gh(method, path, **kw):
 
 def slack(method, **params):
     r = requests.post(f"https://slack.com/api/{method}",
-                      headers={"Authorization": f"Bearer {os.environ['SLACK_BOT_TOKEN']}"},
+                      headers={"Authorization": f"Bearer {os.environ['SLACK_BOT_TOKEN'].strip()}"},
                       data=params, timeout=30)
     r.raise_for_status()
     data = r.json()
