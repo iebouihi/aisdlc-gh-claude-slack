@@ -1,15 +1,18 @@
 # Automation setup
 
-GitHub Actions run the refinement workflow without anyone prompting Claude:
+GitHub Actions run the workflow without anyone prompting Claude:
 
 | Workflow | When | What |
 |---|---|---|
 | `refine-kickoff.yml` | An issue gets `needs-refinement` | Claude reads it, opens a thread in `#claude-app` with questions, labels it `in-refinement` |
 | `refine-sync.yml` | Every 10 min (or *Run workflow*) | Claude reads new replies: asks follow-ups, posts the 📋 proposal; after approval writes back the issue and opens the living spec PR (announced in Slack); nudges / marks `blocked` |
-| `refine-spec-merged.yml` | A spec PR is merged | Marks the issue `ready-for-dev` and tells the Slack thread |
 | `tests.yml` | Push to automation, skills or config | Offline tests of the whole loop |
+| `dev-agent.yml` | A person adds `implement` to a `ready-for-dev` issue | The developer agent (Claude Code GitHub Action) implements it in `app/` and opens a PR, announced in Slack |
+| `claude.yml` | `@claude` in a PR or issue comment | The developer agent applies the requested change |
+| `pr-merged.yml` | A PR is merged | Spec PR → issue `ready-for-dev`; developer PR → issue `done` and closed |
+| `app-ci.yml` | Every PR, and pushes to `app/` | Typecheck, tests, build; agent PRs must change only `app/` |
 
-Claude's instructions: `.claude/agents/requirements-refiner.md` and its skills in `.claude/skills/`.
+Claude's instructions: the agents in `.claude/agents/` and their skills in `.claude/skills/`.
 Settings and texts: `config/refinement.yml`. Plumbing: `automation/refinement/`.
 
 ## One-time setup (≈10 minutes)
@@ -46,6 +49,12 @@ Repo → **Settings → Actions → General → Workflow permissions** → tick
 Without it, approval still pushes the spec branch and posts a one-click "open the pull request"
 link in Slack instead.
 
+### 5. Install the Claude GitHub App (developer agent)
+Install <https://github.com/apps/claude> on this repository. The developer agent's workflows
+authenticate as this app, so it can push branches and open pull requests, and CI runs on its
+commits. It uses the same `ANTHROPIC_API_KEY` secret. Optional: a `DEV_CLAUDE_MODEL` repo
+variable overrides `delivery.model` in the config.
+
 ## Check it works
 1. Open a new issue with the **Requirement** template (it adds `needs-refinement`).
 2. Within a minute, Claude posts the kick-off in `#claude-app` and the issue turns `in-refinement`.
@@ -54,3 +63,6 @@ link in Slack instead.
 4. As the approver, react ✅ or reply "approved" → after the next sync the issue body is
    rewritten, a living spec PR is opened and announced in Slack, and the issue is `spec-review`.
 5. Merge the PR → the issue becomes `ready-for-dev` and `specs/` holds the new decisions.
+6. Add the `implement` label → within a few minutes the developer agent opens a PR (announced
+   in Slack) and the issue is `in-review`. Comment `@claude …` on the PR to ask for changes.
+7. Merge it → the issue is `done` and closed.

@@ -1,0 +1,47 @@
+name: Claude (@claude)
+
+# Reviewers write "@claude <request>" on a pull request (or issue) -> the developer agent applies it,
+# with the same agent, skills and app/-only permission rules as the implementation run.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
+jobs:
+  claude:
+    if: >-
+      contains(github.event.comment.body, '@claude') ||
+      contains(github.event.review.body, '@claude')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r automation/requirements.txt
+      - name: Developer agent settings from config
+        id: args
+        run: python -m automation.refinement agent-args
+        env:
+          DEV_CLAUDE_MODEL: ${{ vars.DEV_CLAUDE_MODEL }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: ${{ steps.args.outputs.claude_args }}
+          settings: ${{ steps.args.outputs.settings }}

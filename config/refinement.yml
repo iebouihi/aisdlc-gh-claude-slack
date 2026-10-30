@@ -86,6 +86,20 @@ refinement:
     reply_words: ["✅", "✔️", ":white_check_mark:", ":heavy_check_mark:", ":+1:", "👍",
                   "approve", "approved", "lgtm", "go", "go ahead", "ship it", "ok", "okay"]
 
+# Delivery: the developer agent implements ready issues in app/ (Claude Code GitHub Action).
+delivery:
+  labels:
+    trigger: implement           # a person adds it to a ready-for-dev issue to start the agent
+    active: in-development       # the agent is working
+    review: in-review            # pull request open, waiting for people
+    done: done                   # merged; the issue is closed
+  branch_prefix: dev/issue-
+  agent: developer               # .claude/agents/developer.md (runs as the main session)
+  prompt: "/implement-issue {number} {branch}"   # the implement-issue skill
+  model: claude-sonnet-5-5       # (env: DEV_CLAUDE_MODEL)
+  max_turns: 80
+  settings: .claude/developer-settings.json      # permission rules: app/ only
+
 # What the automation asks Claude for each step ({...} are filled in by the automation).
 tasks:
   select: |
@@ -162,6 +176,15 @@ messages:
     nudge: '⏰ Friendly nudge: some questions above are still open. Answer by number, or "rest ok" to accept the defaults.'
     blocked: "🚧 No answers for a while - #{number} is now marked *blocked*. Reply here to resume."
     done: "✅ Done - #{number} is ready for dev: <{url}|issue #{number}>"
+    dev_started: "🛠️ *Developer agent started* on #{number} {title}, branch `{branch}`. <{run_url}|Follow the run>"
+    dev_pr: |-
+      🛠️ *Code ready for review* - #{number} {title}
+      <{pr_url}|Review PR #{pr_number}>. Comment `@claude ...` on the PR to request changes; merge when you're happy.
+    dev_branch: |-
+      🛠️ *Code ready for review* - #{number} {title}
+      The code is on branch `{branch}`. <{compare_url}|Open the pull request>, review it and merge when you're happy.
+    dev_no_changes: "⚠️ The developer agent finished #{number} without pushing code. <{run_url}|Its summary is in the run>. The issue is back to *{ready}*."
+    dev_done: "🎉 #{number} {title} is merged and done: <{pr_url}|PR #{pr_number}>"
   github:
     thread_started: "Refinement started in Slack: {link}"
     proposal_posted: "Proposed final requirement posted for approval: {link}"
@@ -183,3 +206,14 @@ messages:
     original_request: "Original request"
     approved_by: "Approved by: {approver} on {date}"
     approved_pending: "Approved by: (pending)"
+    dev_not_ready: "The developer agent only starts on issues labelled `{ready}`. Removed `{trigger}`."
+    dev_started: "🛠️ Developer agent started on branch `{branch}`: {run_url}"
+    dev_pr: "🛠️ Code ready for review: {pr_url}"
+    dev_branch: "🛠️ Code pushed to `{branch}`. Open the pull request: {compare_url}"
+    dev_no_changes: "⚠️ The developer agent finished without pushing code. Its summary is in the run: {run_url}"
+    dev_pr_title: "#{number} {title}"
+    dev_pr_body: |-
+      Closes #{number}
+
+      Implemented by the developer agent: {run_url}
+    dev_done: "✅ Merged in {pr_url}. Done."

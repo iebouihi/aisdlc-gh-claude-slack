@@ -1,7 +1,10 @@
 """Usage:
   python -m automation.refinement kickoff <issue_number>      open the Slack thread for a labelled issue
   python -m automation.refinement sync                        follow every thread in refinement
-  python -m automation.refinement spec-merged <pr_number>     a merged living spec PR: issue -> ready for dev
+  python -m automation.refinement dev-start <issue> <run_url> decide and prepare a developer agent run
+  python -m automation.refinement dev-finish <issue> <run_url> report the agent's pull request
+  python -m automation.refinement agent-args                  developer agent CLI args (for @claude runs)
+  python -m automation.refinement pr-merged <pr_number>       merged spec PR -> ready; merged dev PR -> done
   python -m automation.refinement specs-index                 regenerate specs/**/README.md locally
   python -m automation.refinement show-prompt [select|kickoff|thread]  what Claude receives (no API calls)
 """
@@ -12,9 +15,11 @@ from pathlib import Path
 from . import catalog, config
 from . import specs as spec_store
 from .clients import Claude, GitHub, Slack
+from .delivery import Delivery
 from .engine import Refinement
 
 SECRETS = ("GITHUB_TOKEN", "SLACK_BOT_TOKEN", "ANTHROPIC_API_KEY")
+DELIVERY_SECRETS = ("GITHUB_TOKEN", "SLACK_BOT_TOKEN")
 
 
 def build(cfg):
@@ -23,6 +28,20 @@ def build(cfg):
     claude = Claude(c["model"], c["max_tokens"], cfg["tasks"]["tool_reminder"], cfg["tasks"]["tool_retry"],
                     cache=c.get("cache_system_prompt", True))
     return Refinement(cfg, agent, GitHub(cfg["github"]["repo"]), Slack(), claude)
+
+
+def delivery(cfg):
+    return Delivery(cfg, GitHub(cfg["github"]["repo"]), Slack())
+
+
+def write_outputs(values):
+    """Step outputs for GitHub Actions (also printed for local runs)."""
+    target = os.environ.get("GITHUB_OUTPUT")
+    lines = [f"{k}={v}" for k, v in values.items()]
+    if target:
+        with open(target, "a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    print("\n".join(lines))
 
 
 def show_prompt(cfg, step):
@@ -44,23 +63,38 @@ def specs_index(cfg):
         print(path)
 
 
+def missing(names):
+    gone = [s for s in names if not os.environ.get(s)]
+    if gone:
+        print(f"::warning::Automation not configured, missing secrets: {', '.join(gone)}"
+              " (see docs/automation-setup.md)")
+    return gone
+
+
 def main(argv):
     cfg = config.load()
     if argv[:1] == ["show-prompt"]:
         return show_prompt(cfg, (argv[1:] or ["kickoff"])[0])
     if argv == ["specs-index"]:
         return specs_index(cfg)
-    missing = [s for s in SECRETS if not os.environ.get(s)]
-    if missing:
-        print(f"::warning::Refinement automation not configured, missing secrets: {', '.join(missing)}"
-              " (see docs/automation-setup.md)")
+    if argv == ["agent-args"]:
+        return write_outputs(Delivery(cfg, None, None).agent_args())
+    if argv[:1] in (["dev-start"], ["dev-finish"], ["pr-merged"], ["spec-merged"]):
+        if missing(DELIVERY_SECRETS):
+            return write_outputs({"go": "false"}) if argv[0] == "dev-start" else None
+        if argv[0] == "dev-start" and len(argv) == 3:
+            return write_outputs(delivery(cfg).start(int(argv[1]), argv[2]))
+        if argv[0] == "dev-finish" and len(argv) == 3:
+            return delivery(cfg).finish(int(argv[1]), argv[2])
+        if argv[0] in ("pr-merged", "spec-merged") and len(argv) == 2:
+            return delivery(cfg).pr_merged(int(argv[1]))
+        sys.exit(__doc__)
+    if missing(SECRETS):
         return
     if argv[:1] == ["kickoff"] and len(argv) == 2:
         build(cfg).kickoff(int(argv[1]))
     elif argv == ["sync"]:
         build(cfg).sync()
-    elif argv[:1] == ["spec-merged"] and len(argv) == 2:
-        build(cfg).spec_merged(int(argv[1]))
     else:
         sys.exit(__doc__)
 
@@ -70,5 +104,5 @@ if __name__ == "__main__":
         main(sys.argv[1:])
     except Exception as e:  # surface the reason as a GitHub annotation, not just "exit code 1"
         detail = getattr(getattr(e, "response", None), "text", "") or ""
-        print(f"::error title=Refinement failed::{type(e).__name__}: {e} {detail[:500]}".replace("\n", " "))
+        print(f"::error title=Automation failed::{type(e).__name__}: {e} {detail[:500]}".replace("\n", " "))
         raise

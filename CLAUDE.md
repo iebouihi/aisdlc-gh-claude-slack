@@ -20,9 +20,15 @@ This repo runs the requirement refinement workflow for **good-habit-tracker**
 - Settings and every text the automation posts: `config/refinement.yml`. Never hardcode
   instructions, messages, IDs or label names in `automation/`.
 
+## The app (app/)
+- Read `app/ARCHITECTURE.md` (the living code map) before changing code; keep it true.
+- Implement issues with the `developer` agent / `implement-issue` skill: tests named after
+  acceptance criteria (`AC3 (#1): …`), `npm run check` in `app/` must pass.
+- The developer agent may change only `app/` (`.claude/developer-settings.json`, enforced again
+  in CI). Specs change through refinement; workflows, skills and config through human PRs.
+
 ## Working on the code
 - GitHub access: REST API (`gh api repos/<repo>/...`); GraphQL is unavailable here.
 - Run the tests after any change to `automation/`, `.claude/` or `config/`:
   `python -m automation.tests.test_refinement`
 - See exactly what Claude receives: `python -m automation.refinement show-prompt select|kickoff|thread`
-- The app itself (Next.js, static export) will live in `app/` once requirements are ready for dev.

@@ -1,0 +1,60 @@
+name: Developer agent
+
+# A person adds the "implement" label (config: delivery.labels.trigger) to a ready-for-dev issue
+# -> the developer agent (Claude Code, .claude/agents/developer.md) implements it in app/ and
+# opens a pull request for human review. Any other label: the run stops after the first step.
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: dev-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write      # Claude GitHub App authentication
+  actions: read        # lets the agent read CI results
+
+jobs:
+  develop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      DEV_CLAUDE_MODEL: ${{ vars.DEV_CLAUDE_MODEL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r automation/requirements.txt
+
+      - name: Decide and prepare (ready? labels, Slack)
+        id: start
+        run: python -m automation.refinement dev-start ${{ github.event.issue.number }} "$RUN_URL"
+
+      - if: steps.start.outputs.go == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Developer agent implements the issue
+        if: steps.start.outputs.go == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ steps.start.outputs.prompt }}
+          claude_args: ${{ steps.start.outputs.claude_args }}
+          settings: ${{ steps.start.outputs.settings }}
+
+      - name: Report the pull request (GitHub, Slack)
+        if: always() && steps.start.outputs.go == 'true'
+        run: python -m automation.refinement dev-finish ${{ github.event.issue.number }} "$RUN_URL"

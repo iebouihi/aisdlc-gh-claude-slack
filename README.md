@@ -22,6 +22,13 @@ GitHub issue ──label: needs-refinement──► impact analysis: which specs
                                                 │ PR merged
                                                 ▼
                        specs/ updated for everyone · issue ready-for-dev
+                                                │ a person adds: implement
+                                                ▼
+         developer agent (Claude Code GitHub Action) builds it in app/, tests per AC,
+         updates the code map, opens a PR announced in Slack              [in-review]
+                                                │ review (@claude for changes), merge
+                                                ▼
+                                      issue done and closed
 ```
 
 Concepts (human in the loop, living context, agents and skills, governance) and the flow:
@@ -34,18 +41,26 @@ Concepts (human in the loop, living context, agents and skills, governance) and 
   agents/
     requirements-refiner.md           refines issues; preloads the five skills below
     impact-analyst.md                 research subagent for developers: returns a 1-page brief
+    developer.md                      implements approved issues in app/ (runs as Claude Code)
   skills/
     impact-analysis/                  pick the specs an issue touches   (SKILL.md + output.schema.json)
     refine-kickoff/                   open a refinement                 (SKILL.md + output.schema.json)
     refine-thread/                    decide the next step              (SKILL.md + output.schema.json)
     requirement-format/               the final requirement format
     living-spec/                      spec format and update rules
+    implement-issue/                  read → plan → build → test → code map → PR
+    tests-from-acceptance-criteria/   tests named after AC IDs (traceability)
+    code-map/                         keep app/ARCHITECTURE.md true
+    pr-description/                   the PR description reviewers rely on
+  developer-settings.json             developer agent permissions: app/ only
 specs/                                living specs: one file per capability + generated indexes
+app/                                  the Next.js static app + ARCHITECTURE.md (living code map)
 config/refinement.yml                 settings, budgets, prompts and every posted text
 automation/
   refinement/                         Python runner: GitHub ⇄ Slack ⇄ Claude ⇄ git plumbing only
   tests/                              offline tests of the whole loop
-.github/workflows/                    refine-kickoff, refine-sync, refine-spec-merged, tests
+.github/workflows/                    refine-kickoff, refine-sync, dev-agent, claude (@claude),
+                                      pr-merged, app-ci, tests
 docs/                                 process, setup, Slack app manifest
 ```
 
@@ -80,5 +95,7 @@ issue ready. One-time setup: [docs/automation-setup.md](docs/automation-setup.md
 2. Answer Claude's questions in the Slack thread ("3: yes", or "rest ok" for the defaults).
 3. The PO approves the proposal: ✅ reaction, or reply "approved".
 4. Review and merge the living spec PR announced in Slack; the issue becomes `ready-for-dev`.
+5. Add the `implement` label: the developer agent builds it and opens a PR, announced in Slack.
+6. Review it (comment `@claude …` for changes) and merge; the issue is done and closed.
 
 Tests: `pip install -r automation/requirements.txt && python -m automation.tests.test_refinement`

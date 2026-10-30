@@ -1,8 +1,9 @@
 # AI-integrated SDLC: how this repo works
 
-This repository is a working model of an AI-integrated software lifecycle, starting with the
-**requirements phase** of a small product, *good-habit-tracker*. Agents do the drafting and
-the bookkeeping; people make every decision. Four ideas carry the whole design.
+This repository is a working model of an AI-integrated software lifecycle for a small product,
+*good-habit-tracker*. Two phases run today: **requirements** (refine, approve, update the
+living specs) and **delivery** (implement, review, merge). Agents do the drafting and the
+bookkeeping; people make every decision. Four ideas carry the whole design.
 
 ---
 
@@ -22,6 +23,10 @@ accountability. So every step has a clear owner, and every decision passes a hum
 | Spec update | commits the spec changes, opens a pull request, announces it | |
 | **Review gate** | | **team reviews and merges** the spec PR |
 | Ready | marks the issue `ready-for-dev`, closes the loop in Slack | |
+| **Start gate** | | **a person adds `implement`** |
+| Implementation | implements in `app/`, tests every acceptance criterion, updates the code map, opens a PR | |
+| **Code review gate** | answers `@claude …` change requests on the PR | **team reviews and merges** |
+| Done | closes the issue, tells the Slack thread | |
 
 Rules that make the loop trustworthy:
 - **Claude never invents a decision.** An answer counts only if a person gave it or explicitly
@@ -41,12 +46,15 @@ Agents are only as good as the context they get. Three kinds of context, each in
 | Context | Where | What it holds |
 |---|---|---|
 | **Current truth** | `specs/` | how the product works *today*: one file per capability, rules, decisions with stable IDs |
+| **Code map** | `app/ARCHITECTURE.md` | *where and how* it is built: structure, modules, conventions, architecture decisions |
 | **Change history** | GitHub issues and PRs | what was asked, when, and why it changed |
 | **Reasoning** | Slack threads | the discussion behind each decision |
 
-**Living** means the specs are kept true automatically: an approved requirement *edits* the
-specs it touches (changed decisions are superseded, never left contradicting each other) and
-the change is merged through review. The next agent, and the next developer, start from it.
+**Living** means this context is kept true by the work itself: an approved requirement *edits*
+the specs it touches (changed decisions are superseded, never left contradicting each other),
+and every developer PR updates the code map in the same diff. Both go through review. The next
+agent, and the next developer, start from them. Tests named after acceptance criteria
+(`AC3 (#1): …`) link the requirement to the code that proves it.
 
 **Scales to large repos.** Agents never load all specs or issues:
 - generated indexes (`specs/README.md`, one per module) give a compact map;
@@ -59,14 +67,17 @@ the change is merged through review. The next agent, and the next developer, sta
 Instructions are **files**, written once and used two ways.
 
 - **Agent** (`.claude/agents/*.md`): *who* - role, principles, which skills it preloads.
-  `requirements-refiner` runs the refinement; `impact-analyst` researches impact for developers.
+  `requirements-refiner` runs the refinement; `impact-analyst` researches impact;
+  `developer` implements approved issues.
 - **Skill** (`.claude/skills/<name>/SKILL.md`): *how* - one task done well:
-  `impact-analysis`, `refine-kickoff`, `refine-thread`, `requirement-format`, `living-spec`.
+  `impact-analysis`, `refine-kickoff`, `refine-thread`, `requirement-format`, `living-spec`
+  for requirements; `implement-issue`, `tests-from-acceptance-criteria`, `code-map`,
+  `pr-description` for delivery.
   A skill used by the automation also ships an `output.schema.json`: the structured answer.
 
 | Used by | How |
 |---|---|
-| **Automation** (GitHub Actions) | loads the agent + the step's skills as Claude's system prompt, sends the issue, specs and thread as data, reads the answer through the skill's schema |
+| **Automation** (GitHub Actions) | refinement: loads the agent + the step's skills as Claude's system prompt and reads the answer through the skill's schema. Delivery: runs Claude Code itself (Claude Code GitHub Action) as the `developer` agent with the `implement-issue` skill |
 | **Developers** (Claude Code) | `/refine-kickoff 3`, `/impact-analysis 4`, "use the impact-analyst agent on #2", or just work in the repo with `CLAUDE.md` pointing to `specs/` |
 
 Change *how* the agents work by editing a skill; both the automation and every developer get
@@ -84,6 +95,8 @@ requests, diffable and testable, like code.
 | `.claude/skills/*/SKILL.md` | methods, output formats, update rules |
 | `config/refinement.yml` | channel, approver, labels, budgets, model, prompts, every posted text |
 | `specs/**` | the product's current behaviour and decisions |
+| `app/ARCHITECTURE.md` | how the code is organised and the architecture decisions |
+| `.claude/developer-settings.json` | what the developer agent may touch (`app/` only) and run |
 | `docs/refinement-workflow.md` | the process |
 
 Guard rails that keep it honest:
@@ -92,7 +105,10 @@ Guard rails that keep it honest:
 - **Tests on every change** to agents, skills or config: the whole loop runs offline against
   the real files (22 scenarios: conflicts, change requests, approvals, spec updates, failures).
 - **Traceability:** issue → Slack thread → decisions (who, where) → spec PR → merge.
-- **Least privilege:** the automation's token can only touch issues, the spec branch and PRs.
+- **Least privilege:** the refinement token can only touch issues, the spec branch and PRs; the
+  developer agent may edit only `app/` (permission rules), and CI fails any agent PR that changes
+  files outside `app/`, whatever the agent was told.
+- **CI is the floor:** typecheck, tests and a static build on every PR.
 
 ---
 
@@ -125,6 +141,31 @@ flowchart TD
 
 Yellow: people decide. Blue: agents and automation. Green: shared context updated.
 
+## The delivery phase
+
+```mermaid
+flowchart TD
+    R["Issue ready-for-dev<br/>approved requirement + merged spec"] --> T["A person adds the label: implement"]
+    T --> S["Developer agent starts<br/>Claude Code GitHub Action<br/>label: in-development"]
+    S --> B["Reads issue, living specs, code map<br/>builds in app/, a test per AC,<br/>updates the code map"]
+    B --> C{"npm run check<br/>passes?"}
+    C -- "no" --> B
+    C -- "yes" --> P["Pull request opened<br/>announced in Slack<br/>label: in-review"]
+    P --> G["CI: typecheck, tests, build,<br/>changes only in app/"]
+    G --> V{"Team reviews"}
+    V -- "@claude change request" --> F["Agent applies the change<br/>pushes to the same PR"]
+    F --> G
+    V -- "merged" --> D["Issue done and closed<br/>code map current"]
+    S -. "blocked or no code" .-> X["Back to ready-for-dev<br/>reason in the run"]
+
+    classDef human fill:#fde68a,stroke:#b45309,color:#1f2937
+    classDef agent fill:#bfdbfe,stroke:#1d4ed8,color:#1f2937
+    classDef truth fill:#bbf7d0,stroke:#15803d,color:#1f2937
+    class T,V human
+    class S,B,C,P,F,X,G agent
+    class R,D truth
+```
+
 ## What comes next
 
 The same pattern extends to every phase: an agent drafts from the living context, a person
@@ -134,6 +175,6 @@ approves, and the result updates the context for the next phase.
 |---|---|---|---|
 | Requirements (this repo) | questions, final requirement, spec changes | approval + spec PR | `specs/` |
 | Design | technical approach, data model changes | design review | `specs/`, decision log |
-| Build | code and tests from the spec and acceptance criteria | code review | code, tests linked to AC IDs |
+| Build (this repo) | code and tests from the spec and acceptance criteria | start label + code review | code, tests linked to AC IDs, code map |
 | Test | test cases from acceptance criteria, results | QA sign-off | coverage per AC |
 | Release | release notes from merged specs and PRs | release approval | changelog |

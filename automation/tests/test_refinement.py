@@ -12,6 +12,7 @@ from pathlib import Path
 
 from automation.refinement import catalog, config
 from automation.refinement import specs as spec_store
+from automation.refinement.delivery import Delivery
 from automation.refinement.engine import Refinement, normalize
 from automation.refinement.questions import parse_questions
 
@@ -124,6 +125,9 @@ class Fake:
             self.pulls[num] = {"number": num, "html_url": f"https://github.com/x/y/pull/{num}", "merged": False,
                                "head": {"ref": kw["json"]["head"]}, "title": kw["json"]["title"]}
             return self.pulls[num]
+        if method == "GET" and path.startswith("/pulls?head="):
+            head = path.split("head=")[1].split("&")[0].split(":")[1]
+            return [p for p in self.pulls.values() if p["head"]["ref"] == head and not p.get("merged")]
         if method == "GET" and path.startswith("/pulls/"):
             return self.pulls[int(path.rsplit("/", 1)[1])]
         raise AssertionError(f"unexpected GitHub call {method} {path}")
@@ -243,7 +247,7 @@ def test_config_texts_have_known_placeholders():
                "approver", "date", "product", "groups", "issue", "thread_link", "transcript", "tool", "specs",
                "context", "limit", "level", "files", "pr_url", "pr_number", "branch", "compare_url", "ready",
                "module", "count", "entities", "titles", "id", "summary", "file", "decisions", "issues", "path",
-               "content"}
+               "content", "run_url", "trigger"}
     texts = [v for section in (cfg["messages"]["slack"], cfg["messages"]["github"], cfg["tasks"],
                                cfg["specs"]["generated"]) for v in section.values()]
     for t in texts:
@@ -535,6 +539,108 @@ def test_reopened_issue_ignores_old_proposal():
     f.next_answer = {"action": "follow_up", "slack_message": "Which questions?"}
     eng.sync()
     assert cfg["github"]["labels"]["ready"] not in labels(f)
+
+
+# ---------- delivery: the developer agent ----------
+
+RUN = "https://github.com/x/y/actions/runs/1"
+
+
+def delivery_setup(*label_keys):
+    cfg = make_cfg()
+    f = Fake(cfg)
+    names = {**cfg["github"]["labels"], **{f"dev_{k}": v for k, v in cfg["delivery"]["labels"].items()}}
+    f.issue["labels"] = [{"name": names[k]} for k in label_keys]
+    d = Delivery(cfg, f.gh, f.slack, log=lambda *_: None, root=Path(tempfile.mkdtemp()))
+    return cfg, f, d
+
+
+def test_developer_agent_files():
+    agent = catalog.load_agent("developer")
+    assert [s.name for s in agent.skills] == \
+        ["implement-issue", "tests-from-acceptance-criteria", "code-map", "pr-description"]
+    impl = agent.skill("implement-issue")
+    assert "$issue" in impl.body and "$branch" in impl.body
+    import json
+    settings = json.loads((config.ROOT / make_cfg()["delivery"]["settings"]).read_text())
+    deny = settings["permissions"]["deny"]
+    for protected in (".github/**", ".claude/**", "specs/**", "config/**", "automation/**"):
+        assert f"Edit({protected})" in deny and f"Write({protected})" in deny, protected
+    assert "Edit(app/**)" in settings["permissions"]["allow"]
+    assert (config.ROOT / "app" / "ARCHITECTURE.md").exists()
+
+
+def test_agent_args_come_from_config():
+    cfg, _, d = delivery_setup()
+    args = d.agent_args()
+    assert args["claude_args"].startswith(f"--agent {cfg['delivery']['agent']} --model ")
+    assert f"--max-turns {cfg['delivery']['max_turns']}" in args["claude_args"]
+    assert args["settings"] == cfg["delivery"]["settings"]
+
+
+def test_dev_start_only_on_ready_issues():
+    cfg, f, d = delivery_setup("dev_trigger")  # implement label, but not ready-for-dev
+    assert d.start(7, RUN) == {"go": "false"}
+    assert labels(f) == [] and "only starts on issues labelled" in f.comments[-1]
+    cfg, f, d = delivery_setup("ready")  # some other label event: nothing happens
+    assert d.start(7, RUN) == {"go": "false"} and not f.comments
+
+
+def test_dev_start_prepares_the_run():
+    cfg, f, d = delivery_setup("ready", "dev_trigger")
+    f.comments.append("<!-- slack-thread: C1/100.000001 -->")
+    out = d.start(7, RUN)
+    assert out["go"] == "true" and out["branch"] == "dev/issue-7"
+    assert out["prompt"] == "/implement-issue 7 dev/issue-7" and "--agent developer" in out["claude_args"]
+    assert labels(f) == [cfg["delivery"]["labels"]["active"]]
+    assert "Developer agent started" in f.thread[-1]["text"] and RUN in f.thread[-1]["text"]
+
+
+def test_dev_finish_reports_the_agents_pr():
+    cfg, f, d = delivery_setup("dev_active")
+    f.comments.append("<!-- slack-thread: C1/100.000001 -->")  # refined issue: reply in its thread
+    f.pulls[200] = {"number": 200, "html_url": "https://github.com/x/y/pull/200", "merged": False,
+                    "head": {"ref": "dev/issue-7"}}
+    d.finish(7, RUN)
+    assert labels(f) == [cfg["delivery"]["labels"]["review"]]
+    assert "pull/200" in f.comments[-1] and f.broadcasts and "pull/200" in f.broadcasts[-1]
+
+
+def test_dev_finish_opens_pr_for_pushed_branch_or_hands_it_over():
+    cfg, f, d = delivery_setup("dev_active")
+    f.branches["dev/issue-7"] = {"app/x.ts": "code"}
+    d.finish(7, RUN)
+    pr = f.pulls[100]
+    assert pr["head"]["ref"] == "dev/issue-7" and labels(f) == [cfg["delivery"]["labels"]["review"]]
+    cfg, f, d = delivery_setup("dev_active")
+    f.branches["dev/issue-7"] = {"app/x.ts": "code"}
+    f.pr_fails = True
+    d.finish(7, RUN)
+    assert "compare/main...dev/issue-7?expand=1" in f.thread[-1]["text"]  # no thread: posted in channel
+    assert labels(f) == [cfg["delivery"]["labels"]["review"]]
+
+
+def test_dev_finish_without_code_goes_back_to_ready():
+    cfg, f, d = delivery_setup("dev_active")
+    d.finish(7, RUN)
+    assert labels(f) == [cfg["github"]["labels"]["ready"]] and RUN in f.comments[-1]
+
+
+def test_merged_dev_pr_closes_the_issue():
+    cfg, f, d = delivery_setup("dev_review")
+    f.branches["dev/issue-7"] = {}
+    f.pulls[200] = {"number": 200, "html_url": "https://github.com/x/y/pull/200", "merged": True,
+                    "head": {"ref": "dev/issue-7"}}
+    d.pr_merged(200)
+    assert labels(f) == [cfg["delivery"]["labels"]["done"]] and f.issue["state"] == "closed"
+    assert "merged and done" in f.thread[-1]["text"] and "dev/issue-7" not in f.branches
+
+
+def test_merged_spec_pr_still_marks_ready():
+    cfg, f, d = delivery_setup("spec_review")
+    f.pulls[300] = {"number": 300, "html_url": "u", "merged": True, "head": {"ref": "spec/issue-7"}}
+    d.pr_merged(300)
+    assert labels(f) == [cfg["github"]["labels"]["ready"]] and f.issue["state"] == "open"
 
 
 if __name__ == "__main__":

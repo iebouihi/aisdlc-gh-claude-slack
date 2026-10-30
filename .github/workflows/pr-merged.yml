@@ -1,6 +1,7 @@
-name: Living spec merged
+name: PR merged
 
-# A merged living spec PR (branch prefix: config specs.branch_prefix) makes its issue ready for dev.
+# A merged living spec PR (config specs.branch_prefix) -> issue ready-for-dev.
+# A merged developer PR (config delivery.branch_prefix) -> issue done and closed.
 # Any other merged PR: the run exits at once.
 on:
   pull_request:
@@ -12,7 +13,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  ready:
+  merged:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
@@ -21,11 +22,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r automation/requirements.txt
-      - name: Mark the issue ready for dev
-        run: python -m automation.refinement spec-merged ${{ github.event.pull_request.number }}
+      - name: Move the issue forward
+        run: python -m automation.refinement pr-merged ${{ github.event.pull_request.number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
-          SLACK_APPROVER_ID: ${{ vars.SLACK_APPROVER_ID }}
