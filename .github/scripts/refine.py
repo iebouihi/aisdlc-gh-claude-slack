@@ -201,7 +201,8 @@ def sync():
 def sync_issue(issue, bot):
     n = issue["number"]
     comments = gh("GET", f"/issues/{n}/comments?per_page=100")
-    thread = next((m for c in comments if (m := THREAD_RE.search(c["body"]))), None)
+    # latest thread wins: an issue sent back to needs-refinement gets a fresh thread
+    thread = next((m for c in reversed(comments) if (m := THREAD_RE.search(c["body"]))), None)
     if not thread:
         print(f"#{n}: no Slack thread recorded - skipping")
         return
