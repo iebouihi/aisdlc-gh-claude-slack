@@ -293,13 +293,21 @@ def sync_issue(issue, bot):
         post(out["slack_message"], thread_ts=root)
         print(f"#{n}: follow-up posted")
     elif out["action"] == "propose" and out.get("final_requirement"):
-        ts = post("📋 *PROPOSED FINAL REQUIREMENT*\n\n" + (out.get("slack_message") or out["final_requirement"])
+        ts = post("📋 *PROPOSED FINAL REQUIREMENT*\n\n" + clean_proposal(out.get("slack_message") or out["final_requirement"])
                   + "\n\nReact ✅ to approve, or reply with changes.", thread_ts=root)
         comment(n, f"<!-- proposal: {ts} -->\nProposed final requirement posted for approval: {permalink(channel, ts)}\n\n"
                    f"<details><summary>Proposed issue body</summary>\n\n<!-- body-start -->\n{out['final_requirement']}\n<!-- body-end -->\n\n</details>")
         print(f"#{n}: proposal posted")
     else:
         print(f"#{n}: waiting")
+
+
+def clean_proposal(text):
+    """Drop the header and approval prompt if Claude wrote them too (the script adds its own)."""
+    keep = [line for line in text.strip().splitlines()
+            if "PROPOSED FINAL REQUIREMENT" not in line.upper()
+            and not re.match(r"^\s*_?react\s*(✅|:white_check_mark:|:heavy_check_mark:)", line, re.I)]
+    return "\n".join(keep).strip()
 
 
 def nudge_or_block(issue, msgs, root):
