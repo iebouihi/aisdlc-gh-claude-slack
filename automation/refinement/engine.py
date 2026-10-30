@@ -38,6 +38,7 @@ class Refinement:
         self.strip_lines = [re.compile(p) for p in ref.get("proposal_strip_lines", [])]
         self.slack_text, self.gh_text = cfg["messages"]["slack"], cfg["messages"]["github"]
         self.max_chars = cfg["slack"]["max_message_chars"]
+        self.ignore_text = [re.compile(p, re.S) for p in cfg["slack"].get("ignore_text_patterns", [])]
         self._names = {}
 
     # ---------- shared helpers ----------
@@ -155,6 +156,9 @@ class Refinement:
             return m.get("user") == bot or "bot_id" in m
 
         msgs = sorted(msgs, key=lambda m: float(m["ts"]))
+        for m in msgs:
+            for pattern in self.ignore_text:
+                m["text"] = pattern.sub("", m.get("text", "")).strip()
         last_bot = max((float(m["ts"]) for m in msgs if is_bot(m)), default=0.0)
         new_human = [m for m in msgs if not is_bot(m) and float(m["ts"]) > last_bot]
         proposals = [(first, body) for c in comments for first, _last, body in PROPOSAL_RE.findall(c["body"])

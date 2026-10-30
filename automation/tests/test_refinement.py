@@ -258,7 +258,7 @@ def test_proposal_split_by_slack_with_old_marker():
     first = f.say(BOT, "📋 PROPOSED FINAL REQUIREMENT part 1")
     f.say(BOT, "part 2")
     f.comments.append(f"<!-- proposal: {first} -->\nposted\n<!-- body-start -->\n## Summary\nlive\n<!-- body-end -->")
-    f.say(PO, "approved")
+    f.say(PO, "approved\n*Sent using* Claude")  # signature appended by the posting app
     n = len(f.calls)
     eng.sync()
     assert len(f.calls) == n and labels(f) == [cfg["github"]["labels"]["ready"]]
