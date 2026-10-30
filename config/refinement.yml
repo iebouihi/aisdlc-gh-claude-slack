@@ -19,6 +19,7 @@ github:
 slack:
   channel_id: C0CDNGE90V7        # #claude-app            (env: SLACK_CHANNEL_ID)
   approver_id: U0CEESZR9A4       # Imad Eddine B          (env: SLACK_APPROVER_ID)
+  max_message_chars: 3500        # longer texts are split at line breaks into several messages
 
 claude:
   model: claude-sonnet-5-5       # (env: CLAUDE_MODEL)

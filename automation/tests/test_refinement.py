@@ -183,7 +183,7 @@ def test_full_loop():
     eng.sync()
     prop_ts = f.thread[-1]["ts"]
     assert f.thread[-1]["text"].count("PROPOSED FINAL REQUIREMENT") == 1  # Claude's copy stripped
-    assert "Summary: habits CRUD" in f.thread[-1]["text"] and f"<!-- proposal: {prop_ts} -->" in f.comments[-1]
+    assert "Summary: habits CRUD" in f.thread[-1]["text"] and f"<!-- proposal: {prop_ts} {prop_ts} -->" in f.comments[-1]
 
     f.reactions[prop_ts] = [{"name": "white_check_mark", "users": [DEV]}]  # not the approver
     eng.sync()
@@ -231,6 +231,38 @@ def test_stalled_thread():
     f.next_answer = {"action": "follow_up", "slack_message": "One more: max habits?"}
     eng.sync()
     assert cfg["github"]["labels"]["blocked"] not in labels(f)
+
+
+def test_long_proposal_split_and_approved():
+    cfg, f, eng = setup()
+    eng.kickoff(7)
+    f.say(PO, "rest ok")
+    long_slack = "\n".join(f"• AC{i}: given a habit, when something happens, then a precise result." for i in range(1, 120))
+    f.next_answer = {"action": "propose", "final_requirement": "## Summary\nbig", "slack_message": long_slack}
+    eng.sync()
+    parts = [m for m in f.thread if m["user"] == BOT][2:]
+    assert len(parts) >= 3 and all(len(m["text"]) <= cfg["slack"]["max_message_chars"] for m in parts)
+    assert "AC1:" in parts[0]["text"] and "AC119:" in parts[-1]["text"]  # nothing lost, split at line breaks
+    n = len(f.calls)
+    eng.sync()  # the extra parts don't count as a new bot message
+    assert len(f.calls) == n and cfg["github"]["labels"]["active"] in labels(f)
+    f.reactions[parts[-1]["ts"]] = [{"name": "white_check_mark", "users": [PO]}]  # ✅ on any part
+    eng.sync()
+    assert labels(f) == [cfg["github"]["labels"]["ready"]]
+
+
+def test_proposal_split_by_slack_with_old_marker():
+    """The live case: one-ts marker, Slack split the message itself, approver replies 'approved'."""
+    cfg, f, eng = setup()
+    eng.kickoff(7)
+    first = f.say(BOT, "📋 PROPOSED FINAL REQUIREMENT part 1")
+    f.say(BOT, "part 2")
+    f.comments.append(f"<!-- proposal: {first} -->\nposted\n<!-- body-start -->\n## Summary\nlive\n<!-- body-end -->")
+    f.say(PO, "approved")
+    n = len(f.calls)
+    eng.sync()
+    assert len(f.calls) == n and labels(f) == [cfg["github"]["labels"]["ready"]]
+    assert f.issue["body"].startswith("## Summary\nlive")
 
 
 def test_rerefine_approved_issue():
