@@ -1,0 +1,104 @@
+# Requirement refinement - all settings and texts in one place.
+# Read by the automation (automation/refinement) and by the requirements-refiner agent.
+# Environment variables override the values marked (env: NAME).
+
+product:
+  name: good-habit-tracker
+  description: >-
+    A small static Next.js web app for tracking daily habits. No backend and no login;
+    all data stays in the user's browser.
+
+github:
+  repo: iebouihi/aisdlc-gh-claude-slack          # (env: GITHUB_REPOSITORY)
+  labels:
+    needs: needs-refinement      # added by the PO: start refinement
+    active: in-refinement        # thread open in Slack
+    ready: ready-for-dev         # approved, issue body is final
+    blocked: blocked             # no answers for too long
+
+slack:
+  channel_id: C0CDNGE90V7        # #claude-app            (env: SLACK_CHANNEL_ID)
+  approver_id: U0CEESZR9A4       # Imad Eddine B          (env: SLACK_APPROVER_ID)
+
+claude:
+  model: claude-sonnet-5-5       # (env: CLAUDE_MODEL)
+  max_tokens: 8000
+  agent: requirements-refiner    # .claude/agents/<agent>.md, with the skills it lists
+  skills:
+    kickoff: refine-kickoff      # .claude/skills/<skill>/SKILL.md + output.schema.json
+    thread: refine-thread
+
+refinement:
+  question_groups:
+    - Scope
+    - Behaviour & edge cases
+    - Data
+    - UX
+    - Non-functional
+    - Dependencies & risks
+  other_group: Other             # for questions that name no known group
+  nudge_after_days: 3            # then blocked after the same delay again
+  # lines dropped from Claude's Slack proposal if it repeats what messages.slack.proposal adds
+  # (regexes, matched on lower-case text without emoji or punctuation)
+  proposal_strip_lines: ["proposed final requirement", "^react\\b.*\\bapprove"]
+  approval:
+    reactions: [white_check_mark, heavy_check_mark]
+    # a reply from the approver made only of these words / emoji counts as approval
+    reply_words: ["✅", "✔️", ":white_check_mark:", ":heavy_check_mark:", ":+1:", "👍",
+                  "approve", "approved", "lgtm", "go", "go ahead", "ship it", "ok", "okay"]
+
+# What the automation asks Claude for each step ({...} are filled in by the automation).
+tasks:
+  kickoff: |
+    Use your refine-kickoff skill on this issue.
+
+    Product: {product}
+    Question groups: {groups}
+
+    {issue}
+  thread: |
+    Use your refine-thread skill on this refinement.
+
+    Product: {product}
+    Thread link: {thread_link}
+
+    {issue}
+
+    Slack thread so far:
+
+    {transcript}
+  tool_reminder: "Answer only by calling the `{tool}` tool."
+  tool_retry: "Please call the `{tool}` tool now with your answer."
+
+# Every text the automation posts. Slack texts use Slack mrkdwn.
+messages:
+  slack:
+    kickoff: |-
+      🧩 *Refinement: #{number} {title}*
+      <{url}|View issue #{number} on GitHub>
+
+      {restatement}
+
+      Questions are in the thread 👇 Answer by number (e.g. "3: yes"). Each has a proposed default, so "ok" works too.
+    questions_header: "*Open questions for #{number}* (proposed default in _italics_)"
+    question_group: "*{group}*"
+    question: "{index}. {question}"
+    question_default: " _{default}_"
+    questions_footer: "When these are settled I'll post a 📋 proposed final requirement for ✅."
+    proposal: |-
+      📋 *PROPOSED FINAL REQUIREMENT*
+
+      {body}
+
+      React ✅ or reply "approved" to approve, or reply with changes.
+    nudge: '⏰ Friendly nudge: some questions above are still open. Answer by number, or "rest ok" to accept the defaults.'
+    blocked: "🚧 No answers for a while - #{number} is now marked *blocked*. Reply here to resume."
+    done: "✅ Done - #{number} is ready for dev: <{url}|issue #{number}>"
+  github:
+    thread_started: "Refinement started in Slack: {link}"
+    proposal_posted: "Proposed final requirement posted for approval: {link}"
+    proposal_details: "Proposed issue body"
+    approved: "✅ Approved by {approver} in Slack: {link}\n\nIssue body updated with the final requirement."
+    original_request: "Original request"
+    approved_by: "Approved by: {approver} on {date}"
+    approved_pending: "Approved by: (pending)"

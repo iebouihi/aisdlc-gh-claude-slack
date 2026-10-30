@@ -1,7 +1,8 @@
 name: Refinement sync
 
-# Follows every in-refinement Slack thread: follow-up questions, final proposal,
-# ✅ approval -> write-back to the issue, nudges and blocked status.
+# Follows every in-refinement Slack thread: follow-ups, final proposal,
+# approval -> write-back to the issue, nudges and blocked status.
+# Settings and texts: config/refinement.yml. Instructions: .claude/agents + .claude/skills.
 on:
   schedule:
     - cron: "*/10 * * * *"
@@ -23,13 +24,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install anthropic requests
+      - run: pip install -r automation/requirements.txt
       - name: Sync refinement threads
-        run: python .github/scripts/refine.py sync
+        run: python -m automation.refinement sync
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID || 'C0CDNGE90V7' }}
-          SLACK_APPROVER_ID: ${{ vars.SLACK_APPROVER_ID || 'U0CEESZR9A4' }}
+          # optional overrides of config/refinement.yml (repo variables)
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+          SLACK_APPROVER_ID: ${{ vars.SLACK_APPROVER_ID }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}

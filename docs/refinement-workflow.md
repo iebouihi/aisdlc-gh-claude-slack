@@ -1,114 +1,53 @@
 # Requirement Refinement Workflow (GitHub ⇄ Claude ⇄ Slack)
 
-This is the playbook Claude follows when refining requirements for **good-habit-tracker**.
-Humans can read it to know what to expect; Claude reads it before every run.
+How a rough requirement for **good-habit-tracker** becomes an approved, testable one.
+This page is the process overview. The instructions Claude follows live in the agent and
+skill files, and every setting and message text lives in the config:
+
+| What | Where |
+|---|---|
+| Who Claude is, its principles | `.claude/agents/requirements-refiner.md` |
+| How to open a refinement | `.claude/skills/refine-kickoff/SKILL.md` |
+| How to decide the next step in a thread | `.claude/skills/refine-thread/SKILL.md` |
+| The final requirement format | `.claude/skills/requirement-format/SKILL.md` |
+| Channel, approver, labels, groups, model, task prompts, all posted texts | `config/refinement.yml` |
+| Plumbing between GitHub, Slack and Claude | `automation/refinement/` |
 
 ## Actors
 
 | Who | Role |
 |---|---|
-| Product Owner (PO) | Writes requirements as GitHub issues, approves the final version |
+| Product Owner (PO) | Writes requirements as GitHub issues; the configured approver |
 | Team (dev, QA, design) | Answers questions in the Slack thread |
-| Claude | Facilitates refinement, drafts the result, writes it back to GitHub |
-
-- **Repo:** `iebouihi/aisdlc-gh-claude-slack`
-- **Slack channel:** `#claude-app` (one thread per issue)
-- **Approver:** the PO (`@Imad Eddine B`)
-
-Automation: `refine-kickoff.yml` runs step 2 the moment the label is added;
-`refine-sync.yml` runs steps 3–7 every 10 minutes. See `docs/automation-setup.md`.
+| Claude (`requirements-refiner` agent) | Facilitates refinement, drafts the result |
+| Automation (GitHub Actions) | Runs the agent, posts to Slack, updates GitHub |
 
 ## States (GitHub labels)
 
 ```
 needs-refinement ──► in-refinement ──► ready-for-dev
                           │
-                          └──► blocked  (no answer for 3 working days)
+                          └──► blocked  (no answer after a nudge)
 ```
-
-| Label | Meaning | Who sets it |
-|---|---|---|
-| `needs-refinement` | Requirement written, ready for Claude to pick up | PO |
-| `in-refinement` | A Slack thread is open and the discussion is ongoing | Claude |
-| `ready-for-dev` | Approved, issue body holds the final requirement | Claude, after approval |
-| `blocked` | Waiting on an answer for too long | Claude |
 
 ## Steps
 
-### 1. Intake — GitHub
-The PO opens an issue with the **Requirement** template and adds `needs-refinement`.
-Issues without that label are ignored.
+1. **Intake.** The PO opens an issue with the *Requirement* template, which adds `needs-refinement`.
+2. **Kick-off** (`refine-kickoff`, instant). Claude restates the issue and asks numbered questions
+   with proposed defaults. The automation opens a thread in the channel, links it on the issue
+   and moves the issue to `in-refinement`.
+3. **Refinement** (`refine-thread`, every 10 min). On new replies Claude asks follow-ups about
+   gaps or conflicts. "ok" / "rest ok" accepts the remaining defaults.
+4. **Proposal.** When everything is answered, Claude drafts the final requirement in the
+   `requirement-format` format; it is posted in the thread and saved on the issue.
+5. **Approval.** Only the approver: a ✅ reaction on the proposal, or a reply that is only an
+   approval ("✅", "approved", "lgtm"). Any other reply is treated as a change request.
+   Approval is checked by the automation, never decided by Claude.
+6. **Write-back.** The issue body becomes the final requirement (original kept in a collapsed
+   block), a comment links the thread, the label becomes `ready-for-dev`, and the thread is told.
+7. **Nudge / blocked.** A quiet thread gets a nudge, then `blocked`; a new reply resumes it.
 
-### 2. Kick-off — Slack
-For each `needs-refinement` issue, Claude:
-1. Posts a **top-level message** in `#claude-app`:
-   `🧩 Refinement: #<n> <title>` + issue link + one-paragraph restatement.
-2. Replies **in the thread** with numbered questions, grouped as:
-   *Scope · Behaviour & edge cases · Data · UX · Non-functional · Dependencies & risks*.
-   Each question proposes a default answer so the team can just say "ok".
-3. Comments on the issue: `Refinement started in Slack: <thread link>` and records the
-   thread timestamp in a hidden marker `<!-- slack-thread: <channel_id>/<ts> -->`.
-4. Swaps the label `needs-refinement` → `in-refinement`.
-
-### 3. Refinement — Slack thread
-The team answers in the thread. On each run Claude reads new replies and:
-- asks follow-ups where answers conflict or leave gaps;
-- never invents a decision — unanswered questions stay open (or use the stated default
-  only if someone explicitly accepts it).
-
-### 4. Proposal — Slack thread
-When every question is answered, Claude posts a reply starting with
-`📋 PROPOSED FINAL REQUIREMENT` using the **Final requirement format** below,
-and ends with: *React ✅ to approve, or reply with changes.*
-
-### 5. Approval
-Only a ✅ (`white_check_mark`) reaction **from the approver** on the proposal counts.
-If someone replies with changes instead, Claude revises and posts a new proposal.
-
-### 6. Write-back — GitHub
-After approval Claude:
-1. Replaces the issue body with the final requirement (original text kept in a collapsed
-   `<details>` block at the bottom).
-2. Comments: `✅ Approved by <name> in Slack: <link>` + one-line summary of what changed.
-3. Swaps `in-refinement` → `ready-for-dev`.
-4. Replies in the thread: `Done — #<n> is ready for dev: <issue link>`.
-
-### 7. Nudge / blocked
-If a thread has no new reply for 3 working days, Claude pings the open questions once.
-After 3 more days, it adds `blocked` and says so in the thread.
-
-## Final requirement format
-
-```markdown
-## Summary
-<2–3 sentences: who, what, why>
-
-## User story
-As a <user>, I want <capability>, so that <benefit>.
-
-## Decisions
-| # | Decision | Decided by | Source |
-|---|---|---|---|
-| D1 | ... | @name | Slack thread |
-
-## Acceptance criteria
-- [ ] **AC1** Given ..., when ..., then ...
-- [ ] **AC2** ...
-
-## Out of scope
-- ...
-
-## Open risks / follow-ups
-- ...
-
-## Refinement trace
-- Slack thread: <link>
-- Approved by: @name on <date>
-```
-
-## Rules for Claude
-- GitHub issue = source of truth. Slack = the reasoning.
-- Never change the issue body before approval.
-- Never mark `ready-for-dev` without the approver's ✅.
-- Keep Slack messages short; questions numbered so people can answer "3: yes".
-- Post only in `#claude-app`, only in the issue's own thread (except the kick-off message).
+## Rules
+- GitHub issue = source of truth; Slack = the reasoning.
+- The issue body changes only after approval.
+- Claude never invents decisions; every decision in the final requirement names who made it.

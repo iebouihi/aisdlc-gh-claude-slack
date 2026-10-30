@@ -1,6 +1,8 @@
 name: Refinement kickoff
 
-# An issue gets the needs-refinement label -> Claude opens a refinement thread in Slack.
+# An issue gets the "start refinement" label (config: github.labels.needs) ->
+# the requirements-refiner agent opens a Slack thread. Any other label: the run exits at once.
+# Settings and texts: config/refinement.yml. Instructions: .claude/agents + .claude/skills.
 on:
   issues:
     types: [opened, labeled]
@@ -15,22 +17,21 @@ permissions:
 
 jobs:
   kickoff:
-    if: >-
-      (github.event.action == 'labeled' && github.event.label.name == 'needs-refinement') ||
-      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'needs-refinement'))
+    if: github.event.action == 'labeled' || github.event.issue.labels[0] != null
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install anthropic requests
+      - run: pip install -r automation/requirements.txt
       - name: Open refinement thread
-        run: python .github/scripts/refine.py kickoff ${{ github.event.issue.number }}
+        run: python -m automation.refinement kickoff ${{ github.event.issue.number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID || 'C0CDNGE90V7' }}
-          SLACK_APPROVER_ID: ${{ vars.SLACK_APPROVER_ID || 'U0CEESZR9A4' }}
+          # optional overrides of config/refinement.yml (repo variables)
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+          SLACK_APPROVER_ID: ${{ vars.SLACK_APPROVER_ID }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}

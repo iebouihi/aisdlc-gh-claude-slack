@@ -1,0 +1,22 @@
+{
+  "name": "next_step",
+  "description": "Return the next step for the refinement thread.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["wait", "follow_up", "propose"]
+      },
+      "slack_message": {
+        "type": "string",
+        "description": "follow_up: the reply to post. propose: the final requirement for Slack (mrkdwn), without title or approval prompt."
+      },
+      "final_requirement": {
+        "type": "string",
+        "description": "propose only: the new GitHub issue body in the requirement-format skill's format."
+      }
+    },
+    "required": ["action"]
+  }
+}
