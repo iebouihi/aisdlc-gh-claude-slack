@@ -107,7 +107,8 @@ class Refinement:
         self.post("\n".join(lines), thread_ts=root)
         self.comment(n, self.gh_text["thread_started"].format(link=self.permalink(self.channel, root))
                      + "\n\n" + THREAD_MARK.format(channel=self.channel, ts=root))
-        self.swap_label(n, remove=[self.labels["needs"]], add=[self.labels["active"]])
+        stale = [self.labels[k] for k in ("needs", "ready", "blocked") if self.labels[k] in self.labels_of(issue)]
+        self.swap_label(n, remove=stale, add=[self.labels["active"]])
         self.log(f"#{n}: kicked off, thread {root}")
 
     # ---------- follow the threads ----------
@@ -204,8 +205,10 @@ class Refinement:
         final = final.replace(g["approved_pending"],
                               g["approved_by"].format(approver=approver, date=time.strftime("%Y-%m-%d")))
         summary = f"<summary>{g['original_request']}</summary>"
-        if summary not in original:
-            final += f"\n\n---\n<details>{summary}\n\n{original}\n\n</details>"
+        kept = re.search(r"<details>" + re.escape(summary) + r".*?</details>", original, re.S)
+        # re-refined issue: keep the very first request; otherwise the current body is the original
+        block = kept.group(0) if kept else f"<details>{summary}\n\n{original}\n\n</details>"
+        final += f"\n\n---\n{block}"
         self.gh("PATCH", f"/issues/{n}", json={"body": final})
         self.comment(n, g["approved"].format(approver=approver, link=self.permalink(channel, root)))
         self.swap_label(n, remove=[self.labels["active"], self.labels["blocked"]], add=[self.labels["ready"]])

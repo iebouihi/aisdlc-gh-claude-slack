@@ -233,6 +233,24 @@ def test_stalled_thread():
     assert cfg["github"]["labels"]["blocked"] not in labels(f)
 
 
+def test_rerefine_approved_issue():
+    cfg, f, eng = setup()
+    lb, g = cfg["github"]["labels"], cfg["messages"]["github"]
+    f.issue["body"] = (f"## Summary\nv1\n\n---\n<details><summary>{g['original_request']}</summary>\n\n"
+                       "Users add habits.\n\n</details>")
+    f.issue["labels"] = [{"name": lb["ready"]}, {"name": lb["needs"]}]
+    eng.kickoff(7)
+    assert labels(f) == [lb["active"]]  # ready-for-dev cleared
+    f.say(PO, "rest ok")
+    f.next_answer = {"action": "propose", "final_requirement": "## Summary\nv2", "slack_message": "v2"}
+    eng.sync()
+    f.say(PO, "approved")
+    eng.sync()
+    body = f.issue["body"]
+    assert body.startswith("## Summary\nv2") and "v1" not in body
+    assert body.count("<details>") == 1 and "Users add habits." in body  # first request kept once
+
+
 def test_reopened_issue_ignores_old_proposal():
     cfg, f, eng = setup()
     eng.kickoff(7)
