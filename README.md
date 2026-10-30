@@ -24,7 +24,8 @@ GitHub issue ──label: needs-refinement──► impact analysis: which specs
                        specs/ updated for everyone · issue ready-for-dev
 ```
 
-Process: [docs/refinement-workflow.md](docs/refinement-workflow.md)
+Concepts (human in the loop, living context, agents and skills, governance) and the flow:
+[docs/aisdlc.md](docs/aisdlc.md) · Process: [docs/refinement-workflow.md](docs/refinement-workflow.md)
 
 ## Repository layout
 
