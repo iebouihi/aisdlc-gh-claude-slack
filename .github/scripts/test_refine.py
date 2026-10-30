@@ -156,9 +156,19 @@ def run():
     assert "Summary v2" in f.thread[-1]["text"]
     print("ok  change request -> new proposal")
 
-    # 7. Approver ✅ on the new proposal -> write-back
-    f.reactions[prop_ts] = [{"name": "white_check_mark", "users": ["UPO"]}]
+    # 6b. a ✅ *reply* from someone else is just a message -> goes to Claude, not approved
+    f.say("UDEV", ":white_check_mark:")
+    f.next_sync = {"action": "wait"}
     refine.sync()
+    assert labels(f) == ["in-refinement"]
+    f.thread.pop()
+    print("ok  non-approver ✅ reply ignored")
+
+    # 7. Approver replies ✅ (as a message, like in the live test) -> write-back
+    f.say("UPO", ":white_check_mark:")
+    n_calls = len(f.claude_calls)
+    refine.sync()
+    assert len(f.claude_calls) == n_calls, "approval must not go through Claude"
     assert labels(f) == ["ready-for-dev"], labels(f)
     assert f.issue["body"].startswith("## Summary") and "max 20 habits" in f.issue["body"]
     assert "Approved by: Imad (PO) on" in f.issue["body"]

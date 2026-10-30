@@ -25,6 +25,10 @@ NEEDS, IN_REF, READY, BLOCKED = "needs-refinement", "in-refinement", "ready-for-
 THREAD_RE = re.compile(r"<!-- slack-thread: (\w+)/([\d.]+) -->")
 PROPOSAL_RE = re.compile(r"<!-- proposal: ([\d.]+) -->\s*.*?<!-- body-start -->\n(.*?)\n<!-- body-end -->", re.S)
 APPROVE_EMOJI = {"white_check_mark", "heavy_check_mark"}
+# a reply that is only an approval: ✅ / :white_check_mark: / approved / lgtm / go / ok ... (optionally with emoji)
+APPROVE_TEXT = re.compile(
+    r"^\s*(?:(?:✅|✔️|:white_check_mark:|:heavy_check_mark:|:\+1:|👍|approved?|lgtm|go( ahead)?|ship it|ok(ay)?)[\s.!,]*)+$",
+    re.I)
 NUDGE_MARK = "⏰"
 DAY = 86400
 NUDGE_AFTER = 3 * DAY
@@ -265,14 +269,21 @@ def sync_issue(issue, bot):
     proposals = [(ts, body) for c in comments for ts, body in PROPOSAL_RE.findall(c["body"])]
     proposal = proposals[-1] if proposals else None
 
-    # Step 5/6: latest bot message is the proposal and nobody asked for changes -> check approval
-    if proposal and float(proposal[0]) >= last_bot and not new_human:
-        reacts = slack("reactions.get", channel=channel, timestamp=proposal[0]).get("message", {}).get("reactions", [])
-        if any(r["name"] in APPROVE_EMOJI and APPROVER in r.get("users", []) for r in reacts):
+    # Step 5/6: latest bot message is the proposal -> approved by a ✅ reaction, or by an approval reply
+    if proposal and float(proposal[0]) >= last_bot:
+        replied_ok = bool(new_human) and all(m.get("user") == APPROVER and APPROVE_TEXT.match(m.get("text", ""))
+                                             for m in new_human)
+        if replied_ok:
             write_back(issue, channel, root, proposal[1])
-        else:
-            print(f"#{n}: proposal waiting for ✅")
-        return
+            return
+        if not new_human:
+            reacts = slack("reactions.get", channel=channel, timestamp=proposal[0]).get("message", {}).get("reactions", [])
+            if any(r["name"] in APPROVE_EMOJI and APPROVER in r.get("users", []) for r in reacts):
+                write_back(issue, channel, root, proposal[1])
+            else:
+                print(f"#{n}: proposal waiting for ✅")
+            return
+        # otherwise: someone replied with changes -> fall through to Claude
 
     if not new_human:
         nudge_or_block(issue, msgs, root)
