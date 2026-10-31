@@ -3,8 +3,14 @@
 A static Next.js app (App Router, TypeScript). No backend, no login: **static, localStorage only**.
 All data stays in the browser's `localStorage`; there are no API routes or server code.
 
-Requires Node 20 (`nvm use` reads `.nvmrc`). Supported browsers: the latest two versions of
+Requires Node 26 (`nvm use` reads `.nvmrc`; `engines.node` is `26.x`). Supported browsers: the latest two versions of
 Chrome, Firefox, Safari and Edge.
+
+## Deployment
+
+Vercel deploys the app with default settings (root directory `app/`, Next.js preset, npm, static
+export). Production is deployed from `main`, and each pull request gets a preview URL. Hosting
+does not change where data lives: it stays in the browser's `localStorage`.
 
 ## Run, test, build
 

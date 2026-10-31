@@ -26,9 +26,19 @@ describe("project setup", () => {
     expect(existsSync(join(root, ".prettierrc.json"))).toBe(true);
   });
 
-  it("AC12 (#7): .nvmrc and package.json engines pin Node 20", () => {
-    expect(read(".nvmrc").trim()).toBe("20");
-    expect(pkg.engines.node).toMatch(/^20/);
+  it("AC1 (#12): .nvmrc contains exactly 26", () => {
+    expect(read(".nvmrc").trim()).toBe("26");
+  });
+
+  it("AC2 (#12): package.json engines.node is 26.x", () => {
+    expect(pkg.engines.node).toBe("26.x");
+  });
+
+  it("AC11 (#12): README states Node 26 and how Vercel deploys main and pull requests", () => {
+    const readme = read("README.md");
+    expect(readme).toMatch(/Node 26/);
+    expect(readme).toMatch(/Production is deployed from `main`/);
+    expect(readme).toMatch(/each pull request gets a preview URL/);
   });
 
   it("AC14 (#7): the only runtime dependencies are Next.js and React", () => {
