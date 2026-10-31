@@ -248,7 +248,7 @@ def test_config_texts_have_known_placeholders():
                "context", "limit", "level", "files", "pr_url", "pr_number", "branch", "compare_url", "ready",
                "module", "count", "entities", "titles", "id", "summary", "file", "decisions", "issues", "path",
                "content", "run_url", "trigger", "approved", "proposed", "type", "needs_refinement", "verdict",
-               "confidence", "report"}
+               "confidence", "report", "type_label"}
     texts = [v for section in (cfg["messages"]["slack"], cfg["messages"]["github"], cfg["tasks"],
                                cfg["specs"]["generated"]) for v in section.values()]
     for t in texts:

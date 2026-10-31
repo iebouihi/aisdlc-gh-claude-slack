@@ -29,7 +29,7 @@ accountability. So every step has a clear owner, and every decision passes a hum
 | **Code review gate** | answers `@claude …` change requests on the PR | **team reviews and merges** |
 | Done | closes the issue, tells the Slack thread | |
 
-For a **bug** (issue type Bug), the gates are different: a person adds `need-fix`, the
+For a **bug** (issue type Bug, or the `bug` label on personal repos), the gates are different: a person adds `need-fix`, the
 investigator agent writes a root-cause report, a person **validates** it with `fix-approved`,
 then the developer agent fixes it and the team reviews the PR. Slack only shows the status.
 
@@ -207,7 +207,7 @@ flowchart TD
 
 | | Requirement | Bug |
 |---|---|---|
-| Trigger | `needs-refinement` | `need-fix` on an issue of type **Bug** |
+| Trigger | `needs-refinement` | `need-fix` on a bug (issue type **Bug**, or the `bug` label) |
 | Main work | conversation with the team | investigation of the code |
 | Slack | refinement thread with questions | status only |
 | Human gate | approve requirement, merge spec PR | validate root cause (`fix-approved`), merge fix PR |

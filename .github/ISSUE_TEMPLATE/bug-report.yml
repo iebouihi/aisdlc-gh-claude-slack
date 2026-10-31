@@ -2,6 +2,7 @@ name: Bug report
 description: Something in good-habit-tracker doesn't work as it should
 title: "[BUG] "
 type: Bug
+labels: [bug]
 body:
   - type: markdown
     attributes:

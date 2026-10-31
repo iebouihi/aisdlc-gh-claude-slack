@@ -59,14 +59,22 @@ def test_bug_agent_files_and_permissions():
         assert blocked in perms["deny"], blocked
     assert "Write(.agent/**)" in perms["allow"]
     template = (config.ROOT / ".github" / "ISSUE_TEMPLATE" / "bug-report.yml").read_text()
-    assert f"type: {cfg['bugs']['type']}" in template
+    assert f"type: {cfg['bugs']['type']}" in template and f"labels: [{cfg['bugs']['type_label']}]" in template
 
 
 def test_need_fix_on_a_non_bug_issue_is_refused():
     cfg, f, bug, _ = setup("bug_trigger", issue_type="Feature")
     out = bug.bug_start(7, cfg["bugs"]["labels"]["trigger"], RUN)
-    assert out["go"] == "false" and labels(f) == [] and "only on issues of type" in f.comments[-1]
+    assert out["go"] == "false" and labels(f) == [] and "only on bugs" in f.comments[-1]
     assert not f.thread  # nothing in Slack
+
+
+def test_bug_label_counts_as_bug_type_on_personal_repos():
+    cfg, f, bug, _ = setup("bug_trigger", issue_type=None)
+    f.issue["labels"].append({"name": cfg["bugs"]["type_label"]})
+    out = bug.bug_start(7, cfg["bugs"]["labels"]["trigger"], RUN)
+    assert out["go"] == "true" and out["mode"] == "investigate"
+    assert sorted(labels(f)) == sorted([cfg["bugs"]["type_label"], cfg["bugs"]["labels"]["analyzing"]])
 
 
 def test_other_labels_do_nothing():

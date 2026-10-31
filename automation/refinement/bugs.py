@@ -1,6 +1,7 @@
 """Bug fixes: investigate (bug-investigator agent), a person validates, fix (developer agent).
 
-Triggered by labels on issues of the configured GitHub issue type (config: bugs.type):
+Triggered by labels on bugs: issues of the configured GitHub issue type (config: bugs.type), or
+with the bug label (bugs.type_label) where issue types can't be set (personal repos):
   need-fix      -> Slack "being analyzed", the investigator writes a root-cause report,
                    posted on the issue; state label from the report's verdict
   fix-approved  -> the developer agent fixes it on fix/issue-<n> and opens a PR (in-review)
@@ -28,11 +29,14 @@ class BugFix(Delivery):
         return f"{self.bg['branch_prefix']}{n}"
 
     def is_bug(self, issue):
-        return ((issue.get("type") or {}).get("name") or "") == self.bg["type"]
+        """Issue type Bug, or the bug label (issue types can't be assigned on personal repos)."""
+        typed = ((issue.get("type") or {}).get("name") or "") == self.bg["type"]
+        return typed or self.bg["type_label"] in self.labels_of(issue)
 
     def fields(self, issue, run_url, **extra):
         return {"number": issue["number"], "title": issue["title"], "url": issue["html_url"],
-                "run_url": run_url, "type": self.bg["type"], "trigger": self.bl["trigger"],
+                "run_url": run_url, "type": self.bg["type"], "type_label": self.bg["type_label"],
+                "trigger": self.bl["trigger"],
                 "approved": self.bl["approved"], "proposed": self.bl["proposed"],
                 "needs_refinement": self.labels["needs"], **extra}
 

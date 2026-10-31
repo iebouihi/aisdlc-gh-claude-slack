@@ -103,7 +103,7 @@ issue ready. One-time setup: [docs/automation-setup.md](docs/automation-setup.md
 5. Add the `implement` label: the developer agent builds it and opens a PR, announced in Slack.
 6. Review it (comment `@claude …` for changes) and merge; the issue is done and closed.
 
-**Bugs** take a shorter path: open a **Bug report** (issue type Bug), add `need-fix`. The
+**Bugs** take a shorter path: open a **Bug report** (it sets type Bug and the `bug` label), add `need-fix`. The
 investigator posts a root-cause report on the issue and the status in Slack; add `fix-approved`
 to validate it, and the developer agent opens the fix PR. Review, merge, done.
 

@@ -28,7 +28,7 @@ This repo runs the requirement refinement workflow for **good-habit-tracker**
   in CI). Specs change through refinement; workflows, skills and config through human PRs.
 
 ## Bugs
-- Issues of type **Bug**: `need-fix` starts the `bug-investigator` agent (root cause, no code
+- Bugs (issue type **Bug**, or the `bug` label: issue types can't be set on personal repos): `need-fix` starts the `bug-investigator` agent (root cause, no code
   changes, report format in `root-cause-report`); `fix-approved` (after validation) starts the
   `developer` agent with the `fix-bug` skill. Regression tests are named `BUG #<n>: …`.
 
