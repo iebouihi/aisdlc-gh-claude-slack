@@ -1,0 +1,64 @@
+name: Bug fix
+
+# On issues of type Bug (config: bugs.type):
+#   need-fix label     -> bug-investigator agent finds the root cause; report posted on the issue,
+#                         status in Slack ("being analyzed", "root cause ready")
+#   fix-approved label -> a person validated the analysis: the developer agent fixes it and opens a PR
+# Any other label, or a non-Bug issue: the run stops after the first step.
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: bug-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write      # Claude GitHub App authentication
+  actions: read
+
+jobs:
+  bug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      LABEL: ${{ github.event.label.name }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      DEV_CLAUDE_MODEL: ${{ vars.DEV_CLAUDE_MODEL }}
+      BUG_CLAUDE_MODEL: ${{ vars.BUG_CLAUDE_MODEL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r automation/requirements.txt
+
+      - name: Decide (Bug? which label?) and announce
+        id: start
+        run: python -m automation.refinement bug-start ${{ github.event.issue.number }} "$LABEL" "$RUN_URL"
+
+      - if: steps.start.outputs.go == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Agent (investigate or fix)
+        if: steps.start.outputs.go == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ steps.start.outputs.prompt }}
+          claude_args: ${{ steps.start.outputs.claude_args }}
+          settings: ${{ steps.start.outputs.settings }}
+
+      - name: Report (root cause or fix PR) in GitHub and Slack
+        if: always() && steps.start.outputs.go == 'true'
+        run: python -m automation.refinement bug-finish ${{ github.event.issue.number }} "${{ steps.start.outputs.mode }}" "$RUN_URL"

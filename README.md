@@ -41,7 +41,8 @@ Concepts (human in the loop, living context, agents and skills, governance) and 
   agents/
     requirements-refiner.md           refines issues; preloads the five skills below
     impact-analyst.md                 research subagent for developers: returns a 1-page brief
-    developer.md                      implements approved issues in app/ (runs as Claude Code)
+    developer.md                      implements approved issues and validated fixes in app/
+    bug-investigator.md               finds a bug's root cause; never changes code
   skills/
     impact-analysis/                  pick the specs an issue touches   (SKILL.md + output.schema.json)
     refine-kickoff/                   open a refinement                 (SKILL.md + output.schema.json)
@@ -52,15 +53,19 @@ Concepts (human in the loop, living context, agents and skills, governance) and 
     tests-from-acceptance-criteria/   tests named after AC IDs (traceability)
     code-map/                         keep app/ARCHITECTURE.md true
     pr-description/                   the PR description reviewers rely on
+    investigate-bug/                  reproduce → locate → classify → plan (no fix)
+    root-cause-report/                the report a person validates
+    fix-bug/                          regression test first, smallest validated fix, PR
   developer-settings.json             developer agent permissions: app/ only
+  investigator-settings.json          investigator permissions: read and reproduce, no push
 specs/                                living specs: one file per capability + generated indexes
 app/                                  the Next.js static app + ARCHITECTURE.md (living code map)
 config/refinement.yml                 settings, budgets, prompts and every posted text
 automation/
   refinement/                         Python runner: GitHub ⇄ Slack ⇄ Claude ⇄ git plumbing only
   tests/                              offline tests of the whole loop
-.github/workflows/                    refine-kickoff, refine-sync, dev-agent, claude (@claude),
-                                      pr-merged, app-ci, tests
+.github/workflows/                    refine-kickoff, refine-sync, dev-agent, bug-flow,
+                                      claude (@claude), pr-merged, app-ci, tests
 docs/                                 process, setup, Slack app manifest
 ```
 
@@ -97,5 +102,9 @@ issue ready. One-time setup: [docs/automation-setup.md](docs/automation-setup.md
 4. Review and merge the living spec PR announced in Slack; the issue becomes `ready-for-dev`.
 5. Add the `implement` label: the developer agent builds it and opens a PR, announced in Slack.
 6. Review it (comment `@claude …` for changes) and merge; the issue is done and closed.
+
+**Bugs** take a shorter path: open a **Bug report** (issue type Bug), add `need-fix`. The
+investigator posts a root-cause report on the issue and the status in Slack; add `fix-approved`
+to validate it, and the developer agent opens the fix PR. Review, merge, done.
 
 Tests: `pip install -r automation/requirements.txt && python -m automation.tests.test_refinement`

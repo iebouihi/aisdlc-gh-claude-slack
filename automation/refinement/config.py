@@ -14,13 +14,17 @@ ENV_OVERRIDES = {
     ("slack", "approver_id"): "SLACK_APPROVER_ID",
     ("claude", "model"): "CLAUDE_MODEL",
     ("delivery", "model"): "DEV_CLAUDE_MODEL",
+    ("bugs", "investigator", "model"): "BUG_CLAUDE_MODEL",
 }
 
 
 def load(path=CONFIG_PATH, env=os.environ):
     with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
-    for (section, key), var in ENV_OVERRIDES.items():
+    for path, var in ENV_OVERRIDES.items():
         if env.get(var):
-            cfg[section][key] = env[var].strip()
+            node = cfg
+            for key in path[:-1]:
+                node = node[key]
+            node[path[-1]] = env[var].strip()
     return cfg

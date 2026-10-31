@@ -4,7 +4,9 @@
   python -m automation.refinement dev-start <issue> <run_url> decide and prepare a developer agent run
   python -m automation.refinement dev-finish <issue> <run_url> report the agent's pull request
   python -m automation.refinement agent-args                  developer agent CLI args (for @claude runs)
-  python -m automation.refinement pr-merged <pr_number>       merged spec PR -> ready; merged dev PR -> done
+  python -m automation.refinement bug-start <issue> <label> <run_url>  bug flow: investigate or fix?
+  python -m automation.refinement bug-finish <issue> <mode> <run_url>  post the report / the fix PR
+  python -m automation.refinement pr-merged <pr_number>       spec PR -> ready; feature or fix PR -> done
   python -m automation.refinement specs-index                 regenerate specs/**/README.md locally
   python -m automation.refinement show-prompt [select|kickoff|thread]  what Claude receives (no API calls)
 """
@@ -15,6 +17,7 @@ from pathlib import Path
 from . import catalog, config
 from . import specs as spec_store
 from .clients import Claude, GitHub, Slack
+from .bugs import BugFix
 from .delivery import Delivery
 from .engine import Refinement
 
@@ -32,6 +35,10 @@ def build(cfg):
 
 def delivery(cfg):
     return Delivery(cfg, GitHub(cfg["github"]["repo"]), Slack())
+
+
+def bugfix(cfg):
+    return BugFix(cfg, GitHub(cfg["github"]["repo"]), Slack())
 
 
 def write_outputs(values):
@@ -79,15 +86,19 @@ def main(argv):
         return specs_index(cfg)
     if argv == ["agent-args"]:
         return write_outputs(Delivery(cfg, None, None).agent_args())
-    if argv[:1] in (["dev-start"], ["dev-finish"], ["pr-merged"], ["spec-merged"]):
+    if argv[:1] in (["dev-start"], ["dev-finish"], ["pr-merged"], ["spec-merged"], ["bug-start"], ["bug-finish"]):
         if missing(DELIVERY_SECRETS):
-            return write_outputs({"go": "false"}) if argv[0] == "dev-start" else None
+            return write_outputs({"go": "false"}) if argv[0] in ("dev-start", "bug-start") else None
+        if argv[0] == "bug-start" and len(argv) == 4:
+            return write_outputs(bugfix(cfg).bug_start(int(argv[1]), argv[2], argv[3]))
+        if argv[0] == "bug-finish" and len(argv) == 4:
+            return bugfix(cfg).bug_finish(int(argv[1]), argv[2], argv[3])
         if argv[0] == "dev-start" and len(argv) == 3:
             return write_outputs(delivery(cfg).start(int(argv[1]), argv[2]))
         if argv[0] == "dev-finish" and len(argv) == 3:
             return delivery(cfg).finish(int(argv[1]), argv[2])
         if argv[0] in ("pr-merged", "spec-merged") and len(argv) == 2:
-            return delivery(cfg).pr_merged(int(argv[1]))
+            return bugfix(cfg).pr_merged(int(argv[1]))  # handles spec, feature and fix PRs
         sys.exit(__doc__)
     if missing(SECRETS):
         return

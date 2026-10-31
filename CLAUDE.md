@@ -27,6 +27,11 @@ This repo runs the requirement refinement workflow for **good-habit-tracker**
 - The developer agent may change only `app/` (`.claude/developer-settings.json`, enforced again
   in CI). Specs change through refinement; workflows, skills and config through human PRs.
 
+## Bugs
+- Issues of type **Bug**: `need-fix` starts the `bug-investigator` agent (root cause, no code
+  changes, report format in `root-cause-report`); `fix-approved` (after validation) starts the
+  `developer` agent with the `fix-bug` skill. Regression tests are named `BUG #<n>: …`.
+
 ## Working on the code
 - GitHub access: REST API (`gh api repos/<repo>/...`); GraphQL is unavailable here.
 - Run the tests after any change to `automation/`, `.claude/` or `config/`:

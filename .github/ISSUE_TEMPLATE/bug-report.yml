@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in good-habit-tracker doesn't work as it should
+title: "[BUG] "
+type: Bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! A maintainer adds the `need-fix` label to start the bug-fix flow:
+        an agent investigates the root cause, a person validates it, then the fix comes as a PR.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What went wrong, in a few sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add a habit "Read"
+        2. Reload the page
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Browser and version, device, OS"
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Low (cosmetic, workaround easy)
+        - Medium (a feature misbehaves)
+        - High (a main flow is broken or data is wrong)
+        - Critical (data loss, app unusable)
+    validations:
+      required: true

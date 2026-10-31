@@ -19,3 +19,4 @@ jobs:
           python-version: "3.12"
       - run: pip install -r automation/requirements.txt
       - run: python -m automation.tests.test_refinement
+      - run: python -m automation.tests.test_bugs

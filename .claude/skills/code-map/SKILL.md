@@ -15,7 +15,9 @@ don't have to read the whole codebase. It is to code what `specs/` is to behavio
   **Conventions**;
 - makes an architecture decision (a dependency, a pattern, a trade-off): add a row to
   **Decisions** with the next free `A<n>` ID and the issue number;
-- moves or removes something the map mentions: fix the map.
+- moves or removes something the map mentions: fix the map;
+- fixes a bug whose root cause is a pattern others could repeat: add one line to **Pitfalls**
+  (create the section if missing) with the bug number.
 
 Always update the frontmatter: append the issue number to `issues:` and set `updated:`.
 

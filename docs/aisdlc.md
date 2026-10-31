@@ -1,8 +1,9 @@
 # AI-integrated SDLC: how this repo works
 
 This repository is a working model of an AI-integrated software lifecycle for a small product,
-*good-habit-tracker*. Two phases run today: **requirements** (refine, approve, update the
-living specs) and **delivery** (implement, review, merge). Agents do the drafting and the
+*good-habit-tracker*. Three flows run today: **requirements** (refine, approve, update the
+living specs), **delivery** (implement, review, merge) and **bug fixes** (investigate the root
+cause, validate, fix, review, merge). Agents do the drafting and the
 bookkeeping; people make every decision. Four ideas carry the whole design.
 
 ---
@@ -27,6 +28,10 @@ accountability. So every step has a clear owner, and every decision passes a hum
 | Implementation | implements in `app/`, tests every acceptance criterion, updates the code map, opens a PR | |
 | **Code review gate** | answers `@claude …` change requests on the PR | **team reviews and merges** |
 | Done | closes the issue, tells the Slack thread | |
+
+For a **bug** (issue type Bug), the gates are different: a person adds `need-fix`, the
+investigator agent writes a root-cause report, a person **validates** it with `fix-approved`,
+then the developer agent fixes it and the team reviews the PR. Slack only shows the status.
 
 Rules that make the loop trustworthy:
 - **Claude never invents a decision.** An answer counts only if a person gave it or explicitly
@@ -68,11 +73,12 @@ Instructions are **files**, written once and used two ways.
 
 - **Agent** (`.claude/agents/*.md`): *who* - role, principles, which skills it preloads.
   `requirements-refiner` runs the refinement; `impact-analyst` researches impact;
-  `developer` implements approved issues.
+  `developer` implements approved issues and validated fixes; `bug-investigator` finds root
+  causes without changing code.
 - **Skill** (`.claude/skills/<name>/SKILL.md`): *how* - one task done well:
   `impact-analysis`, `refine-kickoff`, `refine-thread`, `requirement-format`, `living-spec`
   for requirements; `implement-issue`, `tests-from-acceptance-criteria`, `code-map`,
-  `pr-description` for delivery.
+  `pr-description` for delivery; `investigate-bug`, `root-cause-report`, `fix-bug` for bugs.
   A skill used by the automation also ships an `output.schema.json`: the structured answer.
 
 | Used by | How |
@@ -97,6 +103,7 @@ requests, diffable and testable, like code.
 | `specs/**` | the product's current behaviour and decisions |
 | `app/ARCHITECTURE.md` | how the code is organised and the architecture decisions |
 | `.claude/developer-settings.json` | what the developer agent may touch (`app/` only) and run |
+| `.claude/investigator-settings.json` | the bug investigator: read and reproduce; no commit, push or PR |
 | `docs/refinement-workflow.md` | the process |
 
 Guard rails that keep it honest:
@@ -165,6 +172,46 @@ flowchart TD
     class S,B,C,P,F,X,G agent
     class R,D truth
 ```
+
+## The bug-fix flow
+
+A bug differs from a requirement: the expected behaviour already exists in the specs, and the
+work is an investigation, not a conversation. So Slack shows status only, and the human gate is
+the validation of the root cause before any code changes.
+
+```mermaid
+flowchart TD
+    B["Issue of type Bug<br/>Bug report template"] --> N["A person adds the label: need-fix"]
+    N --> A["Slack: being analyzed<br/>label: analyzing"]
+    A --> I["Bug investigator agent<br/>reproduces with a failing test,<br/>finds the root cause vs the specs"]
+    I --> R["Root-cause report on the issue<br/>verdict, cause, fix plan, test plan<br/>Slack: root cause ready"]
+    R --> V{"Verdict"}
+    V -- "needs info / can't reproduce" --> Q["Reporter answers on the issue<br/>then need-fix again"]
+    Q --> A
+    V -- "spec gap / not a bug" --> S["Goes to refinement<br/>needs-refinement"]
+    V -- "bug" --> H{"A person validates<br/>label: fix-approved"}
+    H -- "re-check something" --> N
+    H -- "validated" --> F["Developer agent: regression test first,<br/>smallest fix, PR 'Fixes #n'<br/>label: in-review, Slack notice"]
+    F --> C["CI: checks, app/ only"]
+    C --> RV{"Team reviews"}
+    RV -- "@claude change request" --> F
+    RV -- "merged" --> D["Issue closed: done<br/>regression test kept,<br/>pitfall in the code map if needed"]
+
+    classDef human fill:#fde68a,stroke:#b45309,color:#1f2937
+    classDef agent fill:#bfdbfe,stroke:#1d4ed8,color:#1f2937
+    classDef truth fill:#bbf7d0,stroke:#15803d,color:#1f2937
+    class B,N,Q,H,RV human
+    class A,I,R,V,F,C agent
+    class S,D truth
+```
+
+| | Requirement | Bug |
+|---|---|---|
+| Trigger | `needs-refinement` | `need-fix` on an issue of type **Bug** |
+| Main work | conversation with the team | investigation of the code |
+| Slack | refinement thread with questions | status only |
+| Human gate | approve requirement, merge spec PR | validate root cause (`fix-approved`), merge fix PR |
+| Living context | specs change | specs are the reference; regression test `BUG #n: …`, pitfall in the code map |
 
 ## What comes next
 

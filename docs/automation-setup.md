@@ -8,9 +8,10 @@ GitHub Actions run the workflow without anyone prompting Claude:
 | `refine-sync.yml` | Every 10 min (or *Run workflow*) | Claude reads new replies: asks follow-ups, posts the 📋 proposal; after approval writes back the issue and opens the living spec PR (announced in Slack); nudges / marks `blocked` |
 | `tests.yml` | Push to automation, skills or config | Offline tests of the whole loop |
 | `dev-agent.yml` | A person adds `implement` to a `ready-for-dev` issue | The developer agent (Claude Code GitHub Action) implements it in `app/` and opens a PR, announced in Slack |
+| `bug-flow.yml` | `need-fix` / `fix-approved` on an issue of type Bug | Investigator posts the root-cause report (Slack: status only); after validation the developer agent opens the fix PR |
 | `claude.yml` | `@claude` in a PR or issue comment | The developer agent applies the requested change |
-| `pr-merged.yml` | A PR is merged | Spec PR → issue `ready-for-dev`; developer PR → issue `done` and closed |
-| `app-ci.yml` | Every PR, and pushes to `app/` | Typecheck, tests, build; agent PRs must change only `app/` |
+| `pr-merged.yml` | A PR is merged | Spec PR → issue `ready-for-dev`; feature or fix PR → issue `done` and closed |
+| `app-ci.yml` | Every PR, and pushes to `app/` | Typecheck, tests, build; agent PRs (`dev/`, `fix/`) must change only `app/` |
 
 Claude's instructions: the agents in `.claude/agents/` and their skills in `.claude/skills/`.
 Settings and texts: `config/refinement.yml`. Plumbing: `automation/refinement/`.
@@ -66,3 +67,8 @@ variable overrides `delivery.model` in the config.
 6. Add the `implement` label → within a few minutes the developer agent opens a PR (announced
    in Slack) and the issue is `in-review`. Comment `@claude …` on the PR to ask for changes.
 7. Merge it → the issue is `done` and closed.
+
+Bug fix: open a **Bug report** (type Bug), add `need-fix` → Slack says it's being analyzed and
+the root-cause report appears on the issue (`fix-proposed`). Add `fix-approved` → the fix PR
+opens (`in-review`). Merge → `done`. Optional repo variable `BUG_CLAUDE_MODEL` overrides the
+investigator's model.

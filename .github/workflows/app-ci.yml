@@ -1,7 +1,7 @@
 name: App CI
 
 # Typecheck, tests and static build of the app, on every PR and on main.
-# Agent PRs (branch prefix dev/) must also stay inside app/ - a deterministic guard,
+# Agent PRs (branch prefixes dev/ and fix/) must also stay inside app/ - a deterministic guard,
 # whatever the agent's instructions say.
 on:
   pull_request:
@@ -33,7 +33,9 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
 
   agent-scope:
-    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dev/')
+    if: >-
+      github.event_name == 'pull_request' &&
+      (startsWith(github.head_ref, 'dev/') || startsWith(github.head_ref, 'fix/'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

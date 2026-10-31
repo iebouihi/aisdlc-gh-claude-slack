@@ -100,6 +100,33 @@ delivery:
   max_turns: 80
   settings: .claude/developer-settings.json      # permission rules: app/ only
 
+# Bug fixes: investigate the root cause, a person validates, then the developer agent fixes.
+# Same Slack channel; Slack gets status only (no questions there).
+bugs:
+  type: Bug                      # GitHub issue type the flow accepts
+  branch_prefix: fix/issue-
+  report_file: .agent/root-cause.md               # the investigator writes it, the automation posts it
+  max_report_chars: 60000
+  labels:
+    trigger: need-fix            # a person adds it to a Bug: start the investigation
+    analyzing: analyzing         # investigator agent running
+    proposed: fix-proposed       # root cause + fix plan posted, waiting for validation
+    approved: fix-approved       # a person validates: starts the fix (developer agent)
+    needs_info: needs-info       # reporter must answer; add need-fix again afterwards
+    spec_gap: spec-gap           # the specs don't define it: refine it first
+    not_a_bug: not-a-bug         # works as specified: a change would be a requirement
+  # report verdict -> state label key above (unknown verdicts wait for validation)
+  verdicts: {bug: proposed, spec-gap: spec_gap, not-a-bug: not_a_bug, needs-info: needs_info,
+             cannot-reproduce: needs_info}
+  investigator:
+    agent: bug-investigator      # .claude/agents/bug-investigator.md
+    prompt: "/investigate-bug {number} {report}"
+    model: claude-sonnet-5-5     # (env: BUG_CLAUDE_MODEL)
+    max_turns: 60
+    settings: .claude/investigator-settings.json  # read + reproduce; no commit, no push
+  fixer:                         # runs as the developer agent (delivery.agent and its settings)
+    prompt: "/fix-bug {number} {branch}"
+
 # What the automation asks Claude for each step ({...} are filled in by the automation).
 tasks:
   select: |
@@ -185,6 +212,24 @@ messages:
       The code is on branch `{branch}`. <{compare_url}|Open the pull request>, review it and merge when you're happy.
     dev_no_changes: "⚠️ The developer agent finished #{number} without pushing code. <{run_url}|Its summary is in the run>. The issue is back to *{ready}*."
     dev_done: "🎉 #{number} {title} is merged and done: <{pr_url}|PR #{pr_number}>"
+    bug_analyzing: "🐞 *Bug #{number} {title}* is being analyzed. <{url}|Issue> · <{run_url}|Follow the run>"
+    bug_analyzing_again: "🐞 #{number} is being analyzed again. <{run_url}|Follow the run>"
+    bug_verdict_proposed: |-
+      🔎 *Root cause ready* for #{number}: {summary}
+      <{link}|Read the analysis> and add `{approved}` to the issue to start the fix.
+    bug_verdict_needs_info: "❓ #{number} needs more information from the reporter: <{link}|see the questions>."
+    bug_verdict_spec_gap: "📐 #{number} is a spec gap: the specs don't define this behaviour. <{link}|See the analysis>; add `{needs_refinement}` to refine it as a requirement."
+    bug_verdict_not_a_bug: "ℹ️ #{number} works as the specs describe. <{link}|See the analysis>; add `{needs_refinement}` to request a change."
+    bug_no_report: "⚠️ The investigation of #{number} produced no report. <{run_url}|See the run>. Add `{trigger}` to try again."
+    fix_started: "🛠️ *Fix validated* - the developer agent is fixing #{number} on `{branch}`. <{run_url}|Follow the run>"
+    fix_pr: |-
+      🛠️ *Fix ready for review* - #{number} {title}
+      <{pr_url}|Review PR #{pr_number}>. Comment `@claude ...` on the PR to request changes; merge when you're happy.
+    fix_branch: |-
+      🛠️ *Fix ready for review* - #{number} {title}
+      The fix is on branch `{branch}`. <{compare_url}|Open the pull request>, review it and merge when you're happy.
+    fix_no_changes: "⚠️ The developer agent finished #{number} without pushing a fix. <{run_url}|Its summary is in the run>. The issue is back to *{ready}*."
+    fix_done: "✅ Bug #{number} {title} is fixed: <{pr_url}|PR #{pr_number}> merged."
   github:
     thread_started: "Refinement started in Slack: {link}"
     proposal_posted: "Proposed final requirement posted for approval: {link}"
@@ -217,3 +262,22 @@ messages:
 
       Implemented by the developer agent: {run_url}
     dev_done: "✅ Merged in {pr_url}. Done."
+    bug_not_bug_type: "`{trigger}` starts the bug-fix flow only on issues of type **{type}**. Set the type to {type} and add the label again."
+    bug_analyzing: "🐞 Root-cause investigation started: {run_url}"
+    bug_report_header: "## 🔎 Root-cause analysis\n\nVerdict: **{verdict}** · Confidence: **{confidence}** · [Run]({run_url})\n\n> {summary}"
+    bug_next_proposed: "**Next:** validate the root cause and fix plan by adding `{approved}`. To have something re-checked, comment what and add `{trigger}` again."
+    bug_next_needs_info: "**Next:** the reporter answers the questions above, then add `{trigger}` again."
+    bug_next_spec_gap: "**Next:** the behaviour has to be decided first: add `{needs_refinement}` to refine it as a requirement."
+    bug_next_not_a_bug: "**Next:** close the issue, or add `{needs_refinement}` to request a behaviour change."
+    bug_no_report: "⚠️ The investigation produced no report: {run_url}. Add `{trigger}` to try again."
+    fix_not_validated: "`{approved}` starts the fix only after a root-cause analysis (label `{proposed}`) on an issue of type **{type}**. Removed `{approved}`."
+    fix_started: "🛠️ Fix validated. The developer agent is fixing it on `{branch}`: {run_url}"
+    fix_pr: "🛠️ Fix ready for review: {pr_url}"
+    fix_branch: "🛠️ Fix pushed to `{branch}`. Open the pull request: {compare_url}"
+    fix_no_changes: "⚠️ The developer agent finished without pushing a fix. Its summary is in the run: {run_url}"
+    fix_pr_title: "Fix #{number}: {title}"
+    fix_pr_body: |-
+      Fixes #{number}
+
+      Fixed by the developer agent from the validated root-cause analysis: {run_url}
+    fix_done: "✅ Fix merged in {pr_url}. Done."
