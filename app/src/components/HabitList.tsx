@@ -10,15 +10,42 @@ import {
   type Habit,
 } from "@/lib/habits";
 import { iconEmoji } from "@/lib/icons";
+import {
+  formatDate,
+  hasEnded,
+  hasErrors,
+  summarize,
+  toLocalDate,
+  validateSchedule,
+  type ScheduleErrors,
+} from "@/lib/schedule";
 import { HABITS_KEY, readJson, writeJson } from "@/lib/storage";
 import { DeleteDialog } from "./DeleteDialog";
 import { IconPicker } from "./IconPicker";
+import {
+  ScheduleFields,
+  draftFromSchedule,
+  scheduleFromDraft,
+  type ScheduleDraft,
+} from "./ScheduleFields";
 import styles from "./HabitList.module.css";
 
 const STORAGE_ERROR =
   "Your habits could not be loaded or saved. Changes may be lost when you close this page.";
 
-type Editing = { id: string; name: string; icon: string | undefined; error: string | null };
+type Editing = {
+  id: string;
+  name: string;
+  icon: string | undefined;
+  error: string | null;
+  schedule: ScheduleDraft;
+  scheduleErrors: ScheduleErrors;
+};
+
+/** The add form starts as Daily from today, with no end date. */
+function newDraft(): ScheduleDraft {
+  return { type: "daily", days: [], startDate: toLocalDate(new Date()), endDate: "" };
+}
 
 export function HabitList() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -28,6 +55,14 @@ export function HabitList() {
   const [addName, setAddName] = useState("");
   const [addIcon, setAddIcon] = useState<string | undefined>();
   const [addError, setAddError] = useState<string | null>(null);
+  // Start date is empty until mounted, so the static build never bakes in a date.
+  const [addSchedule, setAddSchedule] = useState<ScheduleDraft>({
+    type: "daily",
+    days: [],
+    startDate: "",
+    endDate: "",
+  });
+  const [addScheduleErrors, setAddScheduleErrors] = useState<ScheduleErrors>({});
 
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -43,6 +78,7 @@ export function HabitList() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (parsed === null) setStorageError(true);
     else setHabits(parsed);
+    setAddSchedule(newDraft());
     setLoaded(true);
   }, []);
 
@@ -80,16 +116,27 @@ export function HabitList() {
   function submitAdd(e: React.FormEvent) {
     e.preventDefault();
     const error = validateName(addName, habits);
+    const schedule = scheduleFromDraft(addSchedule);
+    const scheduleErrors = validateSchedule(schedule, toLocalDate(new Date()));
     setAddError(error);
-    if (error) return;
-    persist(addHabit(habits, addName, addIcon));
+    setAddScheduleErrors(scheduleErrors);
+    if (error || hasErrors(scheduleErrors)) return;
+    persist(addHabit(habits, addName, addIcon, new Date(), schedule));
     setAddName("");
     setAddIcon(undefined);
+    setAddSchedule(newDraft());
     addInputRef.current?.focus();
   }
 
   function startEdit(habit: Habit) {
-    setEditing({ id: habit.id, name: habit.name, icon: habit.icon, error: null });
+    setEditing({
+      id: habit.id,
+      name: habit.name,
+      icon: habit.icon,
+      error: null,
+      schedule: draftFromSchedule(habit),
+      scheduleErrors: {},
+    });
     pendingFocus.current = `[data-focus="edit-input"]`;
   }
 
@@ -102,11 +149,14 @@ export function HabitList() {
     e.preventDefault();
     if (!editing) return;
     const error = validateName(editing.name, habits, editing.id);
-    if (error) {
-      setEditing({ ...editing, error });
+    const schedule = scheduleFromDraft(editing.schedule);
+    const original = habits.find((h) => h.id === editing.id);
+    const scheduleErrors = validateSchedule(schedule, toLocalDate(new Date()), original);
+    if (error || hasErrors(scheduleErrors)) {
+      setEditing({ ...editing, error, scheduleErrors });
       return;
     }
-    persist(updateHabit(habits, editing.id, editing.name, editing.icon));
+    persist(updateHabit(habits, editing.id, editing.name, editing.icon, schedule));
     pendingFocus.current = `[data-focus="edit-${editing.id}"]`;
     setEditing(null);
   }
@@ -157,6 +207,15 @@ export function HabitList() {
           </button>
         </div>
         <IconPicker value={addIcon} onChange={setAddIcon} label="Icon (optional)" />
+        <ScheduleFields
+          idPrefix="add"
+          draft={addSchedule}
+          errors={addScheduleErrors}
+          onChange={(draft) => {
+            setAddSchedule(draft);
+            setAddScheduleErrors({});
+          }}
+        />
         {addError && (
           <p id="add-error" role="alert" className={styles.error}>
             {addError}
@@ -237,6 +296,14 @@ export function HabitList() {
                       onChange={(icon) => setEditing({ ...editing, icon })}
                       label={`Icon for ${habit.name} (optional)`}
                     />
+                    <ScheduleFields
+                      idPrefix="edit"
+                      draft={editing.schedule}
+                      errors={editing.scheduleErrors}
+                      onChange={(schedule) =>
+                        setEditing({ ...editing, schedule, scheduleErrors: {} })
+                      }
+                    />
                     {editing.error && (
                       <p id="edit-error" role="alert" className={styles.error}>
                         {editing.error}
@@ -267,6 +334,12 @@ export function HabitList() {
                     >
                       Delete
                     </button>
+                    <p className={styles.summary}>
+                      {summarize(habit)}
+                      {hasEnded(habit, toLocalDate(new Date())) && (
+                        <span className={styles.ended}>Ended {formatDate(habit.endDate!)}</span>
+                      )}
+                    </p>
                   </>
                 )}
               </li>
