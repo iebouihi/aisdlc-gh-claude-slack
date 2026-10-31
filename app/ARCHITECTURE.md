@@ -1,6 +1,6 @@
 ---
 updated: 2026-10-31
-issues: [1, 7]
+issues: [1, 7, 12]
 ---
 # good-habit-tracker: code map
 
@@ -13,7 +13,7 @@ that changes structure, a convention or a module updates this file (see the `cod
   no API routes, no server actions. Everything runs in the browser.
 - React, TypeScript (strict). No state library; React state and small custom hooks.
 - Tests: Vitest + Testing Library (jsdom). `npm run check` = lint + typecheck + tests + build.
-- Tooling: ESLint (`eslint-config-next`), Prettier (`npm run format`), Node 20 (`.nvmrc`, `engines`).
+- Tooling: ESLint (`eslint-config-next`), Prettier (`npm run format`), Node 26 (`.nvmrc` = `26`, `engines.node` = `26.x`).
 - Styling: a global stylesheet with CSS variables (`src/app/globals.css`), light and dark, plus
   CSS Modules per page/component (`*.module.css`). No Tailwind or UI library.
 
@@ -62,3 +62,4 @@ that changes structure, a convention or a module updates this file (see the `cod
 | A2 | Domain logic pure in `src/lib/`, storage behind one adapter | foundation |
 | A3 | Vitest + Testing Library; tests named after acceptance criteria | foundation |
 | A4 | TypeScript 5.9 (strict) until Next.js supports the native TypeScript 7 compiler | foundation |
+| A5 | One Node version (26) everywhere: `.nvmrc`, `engines`, CI, Vercel. Vercel deploys `main` and PR previews with default settings; no `vercel.json` | #12 |
