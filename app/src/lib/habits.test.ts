@@ -9,7 +9,13 @@ import {
 } from "./habits";
 import { DEFAULT_ICON_EMOJI, ICON_CATALOG, iconEmoji } from "./icons";
 
-const read: Habit = { id: "1", name: "Read", createdAt: "2026-01-01T00:00:00.000Z" };
+const read: Habit = {
+  id: "1",
+  name: "Read",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  frequency: { type: "daily" },
+  startDate: "2026-01-01",
+};
 
 describe("validateName", () => {
   it("AC3 (#1): empty and whitespace-only names are rejected", () => {
@@ -66,9 +72,9 @@ describe("list updates", () => {
     expect("icon" in addHabit([], "Run", undefined)[0]).toBe(false);
   });
   it("AC6 (#1): updateHabit keeps id, createdAt and position", () => {
-    const b: Habit = { id: "2", name: "B", createdAt: "x" };
+    const b: Habit = { ...read, id: "2", name: "B", createdAt: "x" };
     const list = updateHabit([read, b], "1", " Reading ", "book");
-    expect(list[0]).toEqual({ id: "1", name: "Reading", createdAt: read.createdAt, icon: "book" });
+    expect(list[0]).toEqual({ ...read, name: "Reading", icon: "book" });
     expect(list[1]).toBe(b);
   });
   it("AC6 (#1): updateHabit can clear the icon", () => {
@@ -77,6 +83,47 @@ describe("list updates", () => {
   });
   it("AC11 (#1): removeHabit removes only that habit", () => {
     expect(removeHabit([read, { ...read, id: "2" }], "1").map((h) => h.id)).toEqual(["2"]);
+  });
+});
+
+describe("schedule on habits (#15)", () => {
+  const base = { id: "1", name: "Read", createdAt: new Date(2026, 0, 5, 12).toISOString() };
+
+  it("AC12 (#15): a habit without frequency or startDate is Daily from its createdAt date", () => {
+    const [h] = parseHabits([base])!;
+    expect(h.frequency).toEqual({ type: "daily" });
+    expect(h.startDate).toBe("2026-01-05");
+    expect("endDate" in h).toBe(false);
+  });
+  it("AC13 (#15): a malformed frequency, startDate or endDate is corrupted", () => {
+    expect(parseHabits([{ ...base, frequency: "daily" }])).toBeNull();
+    expect(parseHabits([{ ...base, frequency: { type: "weekdays", days: [] } }])).toBeNull();
+    expect(parseHabits([{ ...base, frequency: { type: "weekdays", days: [7] } }])).toBeNull();
+    expect(parseHabits([{ ...base, frequency: { type: "monthly" } }])).toBeNull();
+    expect(parseHabits([{ ...base, startDate: "2026-13-01" }])).toBeNull();
+    expect(parseHabits([{ ...base, startDate: 5 }])).toBeNull();
+    expect(parseHabits([{ ...base, endDate: "12/11/2026" }])).toBeNull();
+  });
+  it("AC15 (#15): addHabit stores frequency and YYYY-MM-DD dates, no endDate key when empty", () => {
+    const [h] = addHabit([], "Run", undefined, new Date(2026, 10, 12), {
+      frequency: { type: "weekdays", days: [1, 3] },
+      startDate: "2026-11-12",
+    });
+    expect(h).toMatchObject({
+      frequency: { type: "weekdays", days: [1, 3] },
+      startDate: "2026-11-12",
+    });
+    expect("endDate" in h).toBe(false);
+    const [d] = addHabit([], "Run", undefined, new Date(2026, 10, 12));
+    expect(d).toMatchObject({ frequency: { type: "daily" }, startDate: "2026-11-12" });
+  });
+  it("AC6 (#15): updateHabit changes the schedule and can clear the end date", () => {
+    const [h] = parseHabits([{ ...base, endDate: "2026-02-01" }])!;
+    const [u] = updateHabit([h], "1", "Read", undefined, {
+      frequency: { type: "daily" },
+      startDate: "2026-01-05",
+    });
+    expect("endDate" in u).toBe(false);
   });
 });
 

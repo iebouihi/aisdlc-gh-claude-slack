@@ -1,12 +1,26 @@
 /** Habit domain logic: validation, parsing stored data and list updates. Pure, no React. */
 import { findIcon } from "./icons";
+import {
+  isLocalDate,
+  parseFrequency,
+  toLocalDate,
+  type Frequency,
+  type Schedule,
+} from "./schedule";
 
 export type Habit = {
   id: string;
   name: string;
   createdAt: string;
   icon?: string;
+  frequency: Frequency;
+  /** Local date "YYYY-MM-DD". */
+  startDate: string;
+  /** Local date "YYYY-MM-DD"; missing means the habit never ends. */
+  endDate?: string;
 };
+
+const DAILY: Frequency = { type: "daily" };
 
 export const MAX_NAME_LENGTH = 60;
 export const ERROR_EMPTY = "Enter a habit name.";
@@ -47,7 +61,9 @@ export function createId(): string {
 
 /**
  * Turn a stored value into habits. Returns null when the value is corrupted (not an array, or an
- * entry has no id or name, or a name over 60 characters). A missing or unknown icon is not an error.
+ * entry has no id or name, a name over 60 characters, or a present but malformed frequency,
+ * startDate or endDate). A missing icon, frequency or startDate is not an error: a legacy habit
+ * becomes Daily from its createdAt (local) date.
  */
 export function parseHabits(value: unknown): Habit[] | null {
   if (value === null || value === undefined) return [];
@@ -55,44 +71,71 @@ export function parseHabits(value: unknown): Habit[] | null {
   const habits: Habit[] = [];
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) return null;
-    const { id, name, createdAt, icon } = entry as Record<string, unknown>;
+    const { id, name, createdAt, icon, frequency, startDate, endDate } = entry as Record<
+      string,
+      unknown
+    >;
     if (typeof id !== "string" || id === "") return null;
     if (typeof name !== "string" || name.trim() === "") return null;
     if (nameLength(name.trim()) > MAX_NAME_LENGTH) return null;
+    const created = typeof createdAt === "string" ? createdAt : new Date(0).toISOString();
+    const parsedFrequency = frequency === undefined ? DAILY : parseFrequency(frequency);
+    if (parsedFrequency === null) return null;
+    if (startDate !== undefined && !isLocalDate(startDate)) return null;
+    if (endDate !== undefined && !isLocalDate(endDate)) return null;
+    const createdDate = new Date(created);
     const habit: Habit = {
       id,
       name: name.trim(),
-      createdAt: typeof createdAt === "string" ? createdAt : new Date(0).toISOString(),
+      createdAt: created,
+      frequency: parsedFrequency,
+      startDate:
+        startDate ?? toLocalDate(Number.isNaN(createdDate.getTime()) ? new Date(0) : createdDate),
     };
+    if (endDate !== undefined) habit.endDate = endDate;
     if (typeof icon === "string" && findIcon(icon)) habit.icon = icon;
     habits.push(habit);
   }
   return habits;
 }
 
+function applySchedule(habit: Habit, schedule: Schedule): Habit {
+  const next: Habit = { ...habit, frequency: schedule.frequency, startDate: schedule.startDate };
+  delete next.endDate;
+  if (schedule.endDate) next.endDate = schedule.endDate;
+  return next;
+}
+
+/** Without a schedule the habit is Daily from today (local date of `now`), with no end. */
 export function addHabit(
   habits: readonly Habit[],
   name: string,
   icon: string | undefined,
   now: Date = new Date(),
+  schedule: Schedule = { frequency: DAILY, startDate: toLocalDate(now) },
 ): Habit[] {
-  const habit: Habit = { id: createId(), name: name.trim(), createdAt: now.toISOString() };
+  const habit = applySchedule(
+    { id: createId(), name: name.trim(), createdAt: now.toISOString() } as Habit,
+    schedule,
+  );
   if (icon) habit.icon = icon;
   return [...habits, habit];
 }
 
-/** Change name and icon only; id, createdAt and position stay as they are. */
+/** Change name, icon and (optionally) schedule; id, createdAt and position stay as they are. */
 export function updateHabit(
   habits: readonly Habit[],
   id: string,
   name: string,
   icon: string | undefined,
+  schedule?: Schedule,
 ): Habit[] {
   return habits.map((h) => {
     if (h.id !== id) return h;
-    const updated: Habit = { id: h.id, name: name.trim(), createdAt: h.createdAt };
+    const updated: Habit = { ...h, name: name.trim() };
+    delete updated.icon;
     if (icon) updated.icon = icon;
-    return updated;
+    return schedule ? applySchedule(updated, schedule) : updated;
   });
 }
 

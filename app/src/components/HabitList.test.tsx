@@ -97,9 +97,9 @@ describe("HabitList", () => {
       }),
     );
     await user.type(input, "{Enter}");
-    expect(stored()).toEqual([
+    expect(stored()).toMatchObject([
       { id: "1", name: "Read books", createdAt: "2026-01-01T00:00:00.000Z", icon: "book" },
-      H("2", "Run"),
+      { id: "2", name: "Run", createdAt: "2026-01-02T00:00:00.000Z" },
     ]);
     expect(screen.getByRole("button", { name: "Edit Read books" })).toHaveFocus();
   });

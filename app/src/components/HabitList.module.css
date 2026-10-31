@@ -136,6 +136,63 @@
   overflow-wrap: anywhere;
 }
 
+.schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+}
+
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dateField {
+  display: flex;
+  flex: 1 1 140px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.summary {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.ended {
+  margin-left: 8px;
+  padding: 0 6px;
+  font-weight: 600;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius);
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
