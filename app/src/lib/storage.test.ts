@@ -38,6 +38,33 @@ describe("storage helper", () => {
     expect(writeJson("k", 1).ok).toBe(false);
   });
 
+  it("AC6 (#7): primitives, arrays and a stored null round-trip", () => {
+    for (const value of [0, "text", false, [1, "a"]]) {
+      writeJson("k", value);
+      expect(readJson("k")).toEqual({ ok: true, value });
+    }
+    writeJson("k", null);
+    expect(readJson("k")).toEqual({ ok: true, value: null });
+  });
+
+  it("AC6 (#7): writing again under the same key replaces the previous value", () => {
+    writeJson("k", { v: 1 });
+    writeJson("k", { v: 2 });
+    expect(readJson("k")).toEqual({ ok: true, value: { v: 2 } });
+  });
+
+  it("AC6 (#7): the value is stored as JSON text under the exact key", () => {
+    writeJson(HABITS_KEY, { v: 1 });
+    expect(window.localStorage.getItem(HABITS_KEY)).toBe('{"v":1}');
+  });
+
+  it("AC7 (#7): a value that cannot be serialized returns a failure result and stores nothing", () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(writeJson("k", circular).ok).toBe(false);
+    expect(window.localStorage.getItem("k")).toBeNull();
+  });
+
   it("AC8 (#7): invalid JSON under the key returns a failure result", () => {
     window.localStorage.setItem("k", "{not json");
     expect(readJson("k")).toEqual({ ok: false, reason: "corrupted" });
