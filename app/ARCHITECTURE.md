@@ -1,6 +1,6 @@
 ---
-updated: 2026-10-30
-issues: [7]
+updated: 2026-10-31
+issues: [1, 7]
 ---
 # good-habit-tracker: code map
 
@@ -29,6 +29,8 @@ that changes structure, a convention or a module updates this file (see the `cod
 |---|---|---|
 | App shell | `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/page.module.css` | platform/app-foundation |
 | Storage helper | `src/lib/storage.ts` (`readJson`, `writeJson`, `HABITS_KEY` = `habits:v1`; return a `StorageResult`) | platform/app-foundation |
+| Habit domain | `src/lib/habits.ts` (`validateName`, `parseHabits`, `addHabit`, `updateHabit`, `removeHabit`; pure) and `src/lib/icons.ts` (24-emoji `ICON_CATALOG`, `iconEmoji` with default fallback) | habits/habit-management |
+| Habit UI | `src/components/HabitList.tsx` (state, storage wiring, add form, inline edit, focus), `IconPicker.tsx`, `DeleteDialog.tsx`, `HabitList.module.css`; rendered by `src/app/page.tsx` | habits/habit-management |
 | Setup checks | `src/lib/project-setup.test.ts` (config and dependency rules) | platform/app-foundation |
 
 ## Conventions
@@ -42,6 +44,13 @@ that changes structure, a convention or a module updates this file (see the `cod
   the criterion ID and the issue: `it("AC3 (#1): empty name shows an inline error", ...)`.
 - **Accessibility is not optional:** labelled controls, keyboard operation, visible focus,
   errors announced (`role="alert"` or `aria-describedby`), WCAG AA contrast.
+- **Storage is read in an effect** (`HabitList`), and the list renders nothing until `loaded`, so
+  there is no empty-state flash and the static build never touches `localStorage`.
+- **Focus moves through `pendingFocus` + `data-focus` attributes:** an action stores a selector,
+  and an effect focuses it after the next render.
+- **Stored data is validated in `parseHabits`:** a malformed entry means corrupted (`null`); an
+  unknown `icon` is dropped silently. Corrupted data is only overwritten on the next save.
+- **Modals are hand-written** (`DeleteDialog`: focus trap, Escape), not native `<dialog>`.
 - Client components start with `"use client"` only where they need state or effects.
 - Runtime dependencies are only `next`, `react`, `react-dom` (enforced by a test).
 - No new runtime dependency without a reason in the PR description.

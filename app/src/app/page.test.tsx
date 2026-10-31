@@ -7,14 +7,11 @@ import RootLayout from "./layout";
 describe("Home page (foundation)", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("AC1 (#7): the home page shows the app title and no habit features", () => {
+  it("AC1 (#7): the home page shows the app title", () => {
     render(<Home />);
     expect(
       screen.getByRole("heading", { level: 1, name: "Good habit tracker" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
   it("AC3 (#7): the root layout sets lang=en", () => {
