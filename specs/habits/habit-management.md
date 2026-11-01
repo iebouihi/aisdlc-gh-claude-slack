@@ -5,8 +5,8 @@ module: habits
 summary: Create, list, edit and delete habits with a name, optional catalog icon, frequency and start/end dates; stored only in the browser's localStorage.
 entities: [Habit]
 status: active
-issues: [1, 15]
-updated: 2026-10-31
+issues: [1, 15, 2]
+updated: 2026-11-01
 ---
 # Habit management
 
@@ -22,7 +22,7 @@ updated: 2026-10-31
 - "Today" is the device's local date, with no server check. A changed device clock can bypass the rules.
 - The frequency and date inputs are in the add form and the inline edit form, next to the name: native date inputs and a weekday checkbox group. They are labelled, errors are announced, and they are keyboard-operable and usable from 320px.
 - Each row shows a short schedule summary, e.g. "Daily · from 12 Nov" or "Mon, Wed, Fri · 12 Nov – 12 Dec".
-- When the end date has passed, the habit stays in the list, shown as "Ended" with its end date. It is not deleted or hidden. Nothing else changes; the schedule is not used for tracking yet.
+- When the end date has passed, the habit stays in the list, shown as "Ended" with its end date. It is not deleted or hidden. The schedule is used by `habits/daily-check-in` to decide whether a habit can be checked today.
 - A habit stored without frequency or dates is treated as Daily, starting on its `createdAt` date, with no end date. There is no migration and it is not corrupted.
 - The list shows habits in creation order, oldest first. New habits appear at the bottom. Habits cannot be reordered.
 - Names are trimmed and must be 1 to 60 characters, counted as Unicode characters (an emoji counts as 1). The input has no maxlength attribute, so pasted over-long text still shows the error.
@@ -31,7 +31,7 @@ updated: 2026-10-31
 - Each row is edited inline, with text buttons "Edit" and "Delete" whose accessible names include the habit name. Enter saves and Escape cancels. Only one row is editable at a time. Starting another edit or clicking away cancels the current edit and keeps the original values.
 - Saving an edit with an unchanged name (or one changed only by case or spacing) is allowed: it closes with no error and the trimmed name is saved.
 - Editing never changes `id`, `createdAt` or the habit's position in the list.
-- Delete asks for confirmation in a dialog. Deletion is permanent, with no undo. Opening the dialog while a row is being edited cancels that edit (original values kept). The dialog traps focus, Escape cancels, and focus returns to the row's Delete button on cancel.
+- Delete asks for confirmation in a dialog. Deletion is permanent, with no undo, and also deletes the habit's check-ins (see `habits/daily-check-in`). Opening the dialog while a row is being edited cancels that edit (original values kept). The dialog traps focus, Escape cancels, and focus returns to the row's Delete button on cancel.
 - Empty state shows "No habits yet" and a prominent "Add your first habit" button. The button focuses the add input.
 - Nothing is rendered in the list until storage has been read on the client, so the empty state never flashes.
 - If stored data is corrupted or localStorage is unavailable at load, a non-blocking error message is shown and the list starts empty. Valid JSON with a malformed entry (missing id or name, name over 60 characters, or a present but malformed `frequency`, `startDate` or `endDate`) counts as corrupted. A missing or unknown `icon`, or missing `frequency` and `startDate`, does not. The app never crashes. Corrupted data is not overwritten until the user saves a change.
@@ -45,7 +45,7 @@ updated: 2026-10-31
 | ID | Decision | Since | Source |
 |---|---|---|---|
 | ~~D1~~ | ~~A habit has a name only; no description, target, frequency, color or icon~~ → superseded by D26 (#1) | #1 | Slack thread |
-| D2 | Marking done, tracking and streaks are separate requirements | #1 | Slack thread |
+| D2 | Marking done, tracking and streaks are separate requirements (marking done today: `habits/daily-check-in`) | #1 | Slack thread |
 | D3 | Name is trimmed, 1–60 characters; empty shows an inline error and nothing is saved | #1 | Slack thread |
 | D4 | No duplicate names (trimmed, case-insensitive); error "You already have this habit." | #1 | Slack thread |
 | D5 | No hard limit on the number of habits | #1 | Slack thread |
@@ -83,7 +83,7 @@ updated: 2026-10-31
 | D37 | A visible "Add" button next to the input behaves like Enter, with the same validation | #1 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793399488815919?thread_ts=1793399488.815919&cid=C0CDNGE90V7) |
 | D38 | Text buttons "Edit" and "Delete" with accessible names including the habit name; delete dialog traps focus, Escape cancels, focus returns to the row's Delete button on cancel | #1 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793399488815919?thread_ts=1793399488.815919&cid=C0CDNGE90V7) |
 | D39 | Usable from 320px width up with no horizontal scroll; latest two versions of Chrome, Firefox, Safari and Edge | #1 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793399488815919?thread_ts=1793399488.815919&cid=C0CDNGE90V7) |
-| D40 | Removing check-ins when a habit is deleted is out of scope here; `id` stays stable for the future tracking requirement | #1 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793399488815919?thread_ts=1793399488.815919&cid=C0CDNGE90V7) |
+| ~~D40~~ | ~~Removing check-ins when a habit is deleted is out of scope here; `id` stays stable for the future tracking requirement~~ → superseded by D53 (#2) | #1 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793399488815919?thread_ts=1793399488.815919&cid=C0CDNGE90V7) |
 | D41 | A habit has a name, optional icon, frequency, start date and optional end date; still no description, target or color | #15 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793451088642969?thread_ts=1793451088.642969&cid=C0CDNGE90V7) |
 | D42 | Frequency is required: Daily (preselected) or specific weekdays (one or more of Mon–Sun); no "N times per week", monthly or custom intervals | #15 | same thread |
 | D43 | Start date is required and defaults to today (local date); end date is optional, empty means never ends | #15 | same thread |
@@ -96,6 +96,7 @@ updated: 2026-10-31
 | D50 | Frequency and date inputs sit in the add form and the inline edit form next to the name: native date inputs and a weekday checkbox group; each row shows a short summary such as "Daily · from 12 Nov" or "Mon, Wed, Fri · 12 Nov – 12 Dec" | #15 | same thread |
 | D51 | New inputs are labelled, errors announced to screen readers, keyboard-operable, usable from 320px with no horizontal scroll | #15 | same thread |
 | D52 | "Today" is the device's local date with no server check; a changed clock can bypass the date rules and that is accepted | #15 | same thread |
+| D53 | Deleting a habit also deletes its check-ins, so no orphaned data remains (check-ins: `habits/daily-check-in`) | #2 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793532079551769?thread_ts=1793532079.551769&cid=C0CDNGE90V7) |
 
 ## Data
 - Entity `Habit`: `id` (string, from crypto.randomUUID() or a fallback), `name` (string, trimmed, 1–60 Unicode characters), `createdAt` (ISO 8601 string), `icon` (optional string, the id of a built-in catalog icon; missing or unknown means no icon), `frequency` (`{type:"daily"}` or `{type:"weekdays", days:[0–6]}`; missing means Daily), `startDate` (local date "YYYY-MM-DD"; missing means the `createdAt` date), `endDate` (optional local date "YYYY-MM-DD"; missing means no end).
@@ -105,8 +106,7 @@ updated: 2026-10-31
 - Habit fields other than name, icon, frequency, start date and end date.
 - Frequencies such as "N times per week", monthly or custom intervals.
 - Uploaded, custom or network-loaded icons.
-- Marking done, daily tracking, streaks and reminders; nothing uses the schedule yet.
-- Removing check-ins when a habit is deleted.
+- Marking done today is in `habits/daily-check-in`; history views, streaks and reminders are not covered.
 - Hiding, archiving or deleting habits automatically when they end.
 - Server-side date checks or protection against a changed device clock.
 - Reordering and undo of deletion.
@@ -119,3 +119,4 @@ updated: 2026-10-31
 - 2026-10-30 #1: Created the capability (create, list, edit and delete habits, stored in localStorage).
 - 2026-10-30 #1: Added an optional catalog icon (D26–D31; D1 and D21 superseded), a visible "Add" button, and edge-case, data and UX rules (D32–D40).
 - 2026-10-31 #15: Added frequency (daily or weekdays), start date and optional end date with date rules, "Ended" display and legacy handling (D41–D52; D26, D30 and D36 superseded).
+- 2026-11-01 #2: Deleting a habit now also deletes its check-ins (D53; D40 superseded); the schedule is now used by daily check-in.
