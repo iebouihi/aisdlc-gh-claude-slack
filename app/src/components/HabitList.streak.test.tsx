@@ -85,6 +85,7 @@ describe("HabitList streaks", () => {
     );
     render(<HabitList />);
     expect(row("Run").getByText("2-day streak")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
     const week = within(screen.getByRole("region", { name: "Week" }));
     expect(week.getByRole("cell", { name: "Run, Thu 29: done" })).toBeInTheDocument();
     expect(week.queryByText(/streak/)).not.toBeInTheDocument();

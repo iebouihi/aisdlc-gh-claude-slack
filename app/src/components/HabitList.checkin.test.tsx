@@ -84,8 +84,10 @@ describe("HabitList daily check-in", () => {
     ]);
     render(<HabitList />);
     expect(row("Later")).toHaveTextContent("Starts 10 Nov");
-    expect(row("Old")).toHaveTextContent("Ended 10 Oct");
+    expect(row("Old")).toHaveTextContent("Ended");
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Habits" }));
+    expect(row("Old")).toHaveTextContent("Ended 10 Oct");
   });
 
   it("AC6 (#2): the summary reads x of y done today, counting only habits due today", async () => {
@@ -128,6 +130,7 @@ describe("HabitList daily check-in", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     seed([habit("1", "Read")], [{ habitId: "1", date: TODAY }]);
     render(<HabitList />);
+    await user.click(screen.getByRole("button", { name: "Habits" }));
     await user.click(screen.getByRole("button", { name: "Edit Read" }));
     const input = screen.getByRole("textbox", { name: "Name for Read" });
     await user.clear(input);
@@ -136,6 +139,7 @@ describe("HabitList daily check-in", () => {
     await user.click(within(form).getByRole("button", { name: "Book" }));
     await user.click(within(form).getByRole("button", { name: "Save" }));
     expect(storedCheckins()).toEqual([{ habitId: "1", date: TODAY }]);
+    await user.click(screen.getByRole("button", { name: "Today" }));
     expect(toggleFor("Read more")).toBeChecked();
   });
 
@@ -150,6 +154,7 @@ describe("HabitList daily check-in", () => {
       ],
     );
     render(<HabitList />);
+    await user.click(screen.getByRole("button", { name: "Habits" }));
     await user.click(screen.getByRole("button", { name: "Delete Read" }));
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));

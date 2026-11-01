@@ -43,15 +43,15 @@
 }
 
 .primaryButton {
-  color: #ffffff;
-  background: #0b6bcb;
-  border-color: #0b6bcb;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .dangerButton {
-  color: #ffffff;
-  background: #b42318;
-  border-color: #b42318;
+  color: var(--on-danger);
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 .picker {
@@ -73,7 +73,7 @@
 
 .iconOption[aria-pressed="true"] {
   border: 2px solid var(--accent);
-  background: var(--border);
+  background: var(--surface);
 }
 
 .srOnly {
@@ -216,7 +216,7 @@
 }
 
 .weekSection {
-  margin-top: 32px;
+  margin-top: var(--space-8);
 }
 
 .weekHeading {
@@ -254,7 +254,7 @@
 }
 
 .done {
-  background: var(--border);
+  background: var(--surface);
 }
 
 .doneLabel,
@@ -273,7 +273,7 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgb(0 0 0 / 50%);
+  background: var(--overlay);
 }
 
 .dialog {

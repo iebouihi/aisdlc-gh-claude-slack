@@ -1,7 +1,7 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HabitList } from "./HabitList";
+import { goTo, renderView } from "./test-utils";
 import { CHECKINS_KEY, HABITS_KEY } from "@/lib/storage";
 
 // Sunday 1 Nov 2026, local time.
@@ -31,16 +31,17 @@ describe("HabitList weekly overview", () => {
     vi.restoreAllMocks();
   });
 
-  it("AC1 (#4): a Week section sits on the home page next to the today list", () => {
+  it("AC1 (#4): the Week overview is its own view on the home page, next to Today", () => {
     seed([habit("1", "Run")]);
-    render(<HabitList />);
-    expect(screen.getByRole("heading", { name: "Week" })).toBeInTheDocument();
+    renderView("Today");
     expect(screen.getByRole("listitem", { name: "Run" })).toBeInTheDocument();
+    goTo("Week");
+    expect(screen.getByRole("heading", { name: "Week" })).toBeInTheDocument();
   });
 
   it("AC2 (#4): 7 headed columns 26 Oct to 1 Nov with today marked", () => {
     seed([habit("1", "Run")]);
-    render(<HabitList />);
+    renderView("Week");
     const heads = week().getAllByRole("columnheader").slice(1);
     expect(heads.map((h) => h.textContent)).toEqual([
       "Mon 26",
@@ -56,7 +57,7 @@ describe("HabitList weekly overview", () => {
 
   it("AC3 (#4) AC4 (#4) AC7 (#4) AC17 (#4): done, missed and not-done-yet cells have labels and icons", () => {
     seed([habit("1", "Run")], [{ habitId: "1", date: "2026-10-27" }]);
-    render(<HabitList />);
+    renderView("Week");
     expect(cell("Run, Tue 27: done")).toHaveTextContent("✓");
     expect(cell("Run, Wed 28: missed")).toHaveTextContent("✗");
     expect(cell("Run, Sun 1: not done yet")).toHaveTextContent("○");
@@ -65,13 +66,13 @@ describe("HabitList weekly overview", () => {
 
   it("AC5 (#4): an unchecked Tuesday of a Mon/Wed/Fri habit is not scheduled", () => {
     seed([habit("1", "Gym", { frequency: { type: "weekdays", days: [1, 3, 5] } })]);
-    render(<HabitList />);
+    renderView("Week");
     expect(cell("Gym, Tue 27: not scheduled")).toBeInTheDocument();
   });
 
   it("AC6 (#4): days outside start and end dates are not active", () => {
     seed([habit("1", "Run", { startDate: "2026-10-28", endDate: "2026-10-30" })]);
-    render(<HabitList />);
+    renderView("Week");
     expect(cell("Run, Tue 27: not active")).toBeInTheDocument();
     expect(cell("Run, Wed 28: missed")).toBeInTheDocument();
     expect(cell("Run, Sat 31: not active")).toBeInTheDocument();
@@ -81,7 +82,7 @@ describe("HabitList weekly overview", () => {
     const checkins = [{ habitId: "1", date: "2026-10-27" }];
     seed([habit("1", "Gym", { frequency: { type: "weekdays", days: [1] } })], checkins);
     const keysBefore = Object.keys(localStorage).sort();
-    render(<HabitList />);
+    renderView("Week");
     expect(cell("Gym, Tue 27: done")).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem(CHECKINS_KEY)!)).toEqual(checkins);
     expect(Object.keys(localStorage).sort()).toEqual(keysBefore);
@@ -95,7 +96,7 @@ describe("HabitList weekly overview", () => {
       habit("4", "Future", { startDate: "2026-11-02" }),
       habit("5", "C"),
     ]);
-    render(<HabitList />);
+    renderView("Week");
     const names = week()
       .getAllByRole("rowheader")
       .map((h) => h.textContent);
@@ -107,7 +108,7 @@ describe("HabitList weekly overview", () => {
 
   it("AC11 (#4): a legacy habit counts as Daily from its createdAt date", () => {
     seed([{ id: "1", name: "Old", createdAt: new Date(2026, 9, 28, 12).toISOString() }]);
-    render(<HabitList />);
+    renderView("Week");
     expect(cell("Old, Tue 27: not active")).toBeInTheDocument();
     expect(cell("Old, Wed 28: missed")).toBeInTheDocument();
     expect(week().getByText("0 of 5 scheduled days done")).toBeInTheDocument();
@@ -118,7 +119,7 @@ describe("HabitList weekly overview", () => {
       [habit("1", "Run", { startDate: "2026-10-28" })],
       ["2026-10-28", "2026-10-29", "2026-11-01"].map((date) => ({ habitId: "1", date })),
     );
-    render(<HabitList />);
+    renderView("Week");
     expect(week().getByText("3 of 5 scheduled days done")).toBeInTheDocument();
   });
 
@@ -130,14 +131,14 @@ describe("HabitList weekly overview", () => {
         endDate: "2026-10-29",
       }),
     ]);
-    render(<HabitList />);
+    renderView("Week");
     expect(week().getByText("No scheduled days")).toBeInTheDocument();
   });
 
   it("AC14 (#4): clicking a cell changes nothing", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     seed([habit("1", "Run")], []);
-    render(<HabitList />);
+    renderView("Week");
     await user.click(cell("Run, Sun 1: not done yet"));
     await user.click(cell("Run, Wed 28: missed"));
     expect(cell("Run, Sun 1: not done yet")).toBeInTheDocument();
@@ -146,13 +147,13 @@ describe("HabitList weekly overview", () => {
   });
 
   it("AC15 (#4): with no habits the Week section says 'No habits yet'", () => {
-    render(<HabitList />);
+    renderView("Week");
     expect(week().getByText("No habits yet")).toBeInTheDocument();
   });
 
   it("AC16 (#4): corrupted storage shows the error and an empty Week view", () => {
     localStorage.setItem(HABITS_KEY, "{not json");
-    render(<HabitList />);
+    renderView("Week");
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(week().getByText("No habits yet")).toBeInTheDocument();
     expect(week().queryByRole("table")).not.toBeInTheDocument();
@@ -160,7 +161,7 @@ describe("HabitList weekly overview", () => {
 
   it("AC18 (#4): the Week view is a table with column and row headers", () => {
     seed([habit("1", "Run")]);
-    render(<HabitList />);
+    renderView("Week");
     expect(week().getByRole("table")).toBeInTheDocument();
     expect(week().getAllByRole("columnheader")).toHaveLength(8);
     expect(week().getByRole("rowheader")).toHaveTextContent("Run");
@@ -168,7 +169,7 @@ describe("HabitList weekly overview", () => {
 
   it("AC19 (#4): the grid has no fixed width and habit names can wrap", () => {
     seed([habit("1", "A very long habit name that must wrap on a narrow screen")]);
-    render(<HabitList />);
+    renderView("Week");
     // Layout is CSS only (table-layout: fixed, overflow-wrap); jsdom cannot measure it,
     // so check the long name is a plain text row header, not truncated or clipped by script.
     expect(week().getByRole("rowheader")).toHaveTextContent(
@@ -179,16 +180,18 @@ describe("HabitList weekly overview", () => {
   it("AC20 (#4): toggling today updates today's cell and the summary at once", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     seed([habit("1", "Run", { startDate: "2026-10-31" })], []);
-    render(<HabitList />);
+    renderView("Week");
     expect(week().getByText("0 of 2 scheduled days done")).toBeInTheDocument();
+    goTo("Today");
     await user.click(screen.getByRole("checkbox", { name: "Done today: Run" }));
+    goTo("Week");
     expect(cell("Run, Sun 1: done")).toBeInTheDocument();
     expect(week().getByText("1 of 2 scheduled days done")).toBeInTheDocument();
   });
 
   it("AC21 (#4): the window shifts when the date changes and the app gets focus", () => {
     seed([habit("1", "Run")]);
-    render(<HabitList />);
+    renderView("Week");
     expect(week().getAllByRole("columnheader")[7]).toHaveTextContent("Sun 1");
     act(() => {
       vi.setSystemTime(new Date(2026, 10, 2, 9));

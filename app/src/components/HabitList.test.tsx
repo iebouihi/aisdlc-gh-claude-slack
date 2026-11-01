@@ -1,7 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HabitList } from "./HabitList";
+import { renderView } from "./test-utils";
 import { DEFAULT_ICON_EMOJI } from "@/lib/icons";
 import { HABITS_KEY } from "@/lib/storage";
 
@@ -26,7 +27,7 @@ describe("HabitList", () => {
 
   it("AC1 (#1): adds a habit with an icon via Enter and via the Add button, no toast", async () => {
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.click(screen.getByRole("button", { name: "Book" }));
     await add(user, "Read 20 min");
     expect(addInput()).toHaveValue("");
@@ -42,7 +43,7 @@ describe("HabitList", () => {
 
   it("AC2 (#1): a habit without an icon shows the default icon", async () => {
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await add(user, "Stretch");
     expect(screen.getByRole("listitem")).toHaveTextContent(DEFAULT_ICON_EMOJI);
     expect("icon" in stored()[0]).toBe(false);
@@ -50,7 +51,7 @@ describe("HabitList", () => {
 
   it("AC3 (#1): empty and over-long names show errors and save nothing", async () => {
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.type(addInput(), "   {Enter}");
     expect(screen.getByRole("alert")).toHaveTextContent("Enter a habit name.");
     await user.clear(addInput());
@@ -63,7 +64,7 @@ describe("HabitList", () => {
 
   it("AC4 (#1): 60 emoji are accepted and 61 are rejected", async () => {
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.click(addInput());
     await user.paste("😀".repeat(61));
     await user.keyboard("{Enter}");
@@ -77,7 +78,7 @@ describe("HabitList", () => {
   it("AC5 (#1): a duplicate name is rejected", async () => {
     seed([H("1", "Read")]);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.type(addInput(), " read {Enter}");
     expect(screen.getByRole("alert")).toHaveTextContent("You already have this habit.");
     expect(stored()).toHaveLength(1);
@@ -86,7 +87,7 @@ describe("HabitList", () => {
   it("AC6 (#1): editing name and icon keeps id, createdAt and position", async () => {
     seed([H("1", "Read"), H("2", "Run")]);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.click(screen.getByRole("button", { name: "Edit Read" }));
     const input = screen.getByRole("textbox", { name: "Name for Read" });
     await user.clear(input);
@@ -107,7 +108,7 @@ describe("HabitList", () => {
   it("AC7 (#1): saving with the same name (case or spacing) closes with no error", async () => {
     seed([H("1", "Read")]);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.click(screen.getByRole("button", { name: "Edit Read" }));
     const input = screen.getByRole("textbox", { name: "Name for Read" });
     await user.clear(input);
@@ -120,7 +121,7 @@ describe("HabitList", () => {
   it("AC8 (#1): Escape or clicking away cancels the edit, name and icon restored", async () => {
     seed([H("1", "Read", "book")]);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.click(screen.getByRole("button", { name: "Edit Read" }));
     await user.type(screen.getByRole("textbox", { name: "Name for Read" }), "ing{Escape}");
     expect(screen.getByRole("listitem", { name: "Read" })).toHaveTextContent("📖");
@@ -136,7 +137,7 @@ describe("HabitList", () => {
   it("AC9 (#1): Delete while editing cancels the edit and opens the dialog for that habit", async () => {
     seed([H("1", "Read"), H("2", "Run")]);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.click(screen.getByRole("button", { name: "Edit Read" }));
     await user.type(screen.getByRole("textbox", { name: "Name for Read" }), "ing");
     await user.click(screen.getByRole("button", { name: "Delete Run" }));
@@ -148,7 +149,7 @@ describe("HabitList", () => {
   it("AC10 (#1): the dialog traps focus and Escape returns focus to the Delete button", async () => {
     seed([H("1", "Read")]);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.click(screen.getByRole("button", { name: "Delete Read" }));
     const dialog = screen.getByRole("dialog");
     for (let i = 0; i < 5; i++) {
@@ -164,7 +165,7 @@ describe("HabitList", () => {
   it("AC11 (#1): confirming deletes permanently and focuses the next row, then the add input", async () => {
     seed([H("1", "Read"), H("2", "Run")]);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     await user.click(screen.getByRole("button", { name: "Delete Read" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
     expect(stored().map((h: { id: string }) => h.id)).toEqual(["2"]);
@@ -177,14 +178,14 @@ describe("HabitList", () => {
 
   it("AC12 (#1): stored habits without an icon load with the default icon and no error", () => {
     seed([H("1", "Read")]);
-    render(<HabitList />);
+    renderView("Habits");
     expect(screen.getByRole("listitem")).toHaveTextContent(DEFAULT_ICON_EMOJI);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("AC13 (#1): an unknown stored icon shows the default icon and no error", () => {
     seed([H("1", "Read", "not-in-catalog")]);
-    render(<HabitList />);
+    renderView("Habits");
     expect(screen.getByRole("listitem")).toHaveTextContent(DEFAULT_ICON_EMOJI);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -193,7 +194,7 @@ describe("HabitList", () => {
     const bad = [{ name: "No id" }];
     seed(bad);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
     expect(stored()).toEqual(bad);
@@ -204,14 +205,14 @@ describe("HabitList", () => {
 
   it("AC15 (#1): unparseable data shows an error without crashing", () => {
     localStorage.setItem(HABITS_KEY, "{not json");
-    render(<HabitList />);
+    renderView("Habits");
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getAllByText("No habits yet").length).toBeGreaterThan(0);
   });
 
   it("AC15 (#1): a failed save shows the error and keeps the change for the session", async () => {
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("full");
     });
@@ -224,15 +225,15 @@ describe("HabitList", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    render(<HabitList />);
+    renderView("Habits");
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 
   it("AC16 (#1): the empty state shows and its button focuses the add input", async () => {
     const user = userEvent.setup();
-    render(<HabitList />);
-    // Shown in the Today list and in the Week section.
-    expect(screen.getAllByText("No habits yet")).toHaveLength(2);
+    renderView("Today");
+    // Shown in the Today view, where the button opens Habits and focuses the add input.
+    expect(screen.getAllByText("No habits yet")).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Add your first habit" }));
     expect(addInput()).toHaveFocus();
   });
@@ -245,7 +246,7 @@ describe("HabitList", () => {
   it("AC17 (#1): picker options are labelled buttons reachable by keyboard; list icons are hidden", async () => {
     seed([H("1", "Read", "book")]);
     const user = userEvent.setup();
-    render(<HabitList />);
+    renderView("Habits");
     const group = screen.getByRole("group", { name: "Icon (optional)" });
     const options = within(group).getAllByRole("button");
     expect(options.length).toBeGreaterThanOrEqual(24);
@@ -263,7 +264,7 @@ describe("HabitList", () => {
 
   it("AC18 (#1): each row has Edit and Delete buttons named after the habit", () => {
     seed([H("1", "Read")]);
-    render(<HabitList />);
+    renderView("Habits");
     const row = screen.getByRole("listitem", { name: "Read" });
     expect(within(row).getByRole("button", { name: "Edit Read" })).toHaveTextContent("Edit");
     expect(within(row).getByRole("button", { name: "Delete Read" })).toHaveTextContent("Delete");
@@ -271,12 +272,12 @@ describe("HabitList", () => {
 
   it("AC20 (#1): list, names, icons and order survive a reload", async () => {
     const user = userEvent.setup();
-    const first = render(<HabitList />);
+    const first = renderView("Habits");
     await user.click(screen.getByRole("button", { name: "Run" }));
     await add(user, "Jog");
     await add(user, "Read");
     first.unmount();
-    render(<HabitList />);
+    renderView("Habits");
     const items = screen.getAllByRole("listitem");
     expect(items.map((i) => i.getAttribute("aria-label"))).toEqual(["Jog", "Read"]);
     expect(items[0]).toHaveTextContent("🏃");

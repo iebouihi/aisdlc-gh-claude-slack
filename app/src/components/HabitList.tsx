@@ -32,6 +32,7 @@ import {
   type ScheduleErrors,
 } from "@/lib/schedule";
 import { BADGES_KEY, CHECKINS_KEY, HABITS_KEY, readJson, writeJson } from "@/lib/storage";
+import { AppNav, type View } from "./AppNav";
 import { Badges } from "./Badges";
 import { DeleteDialog } from "./DeleteDialog";
 import { IconPicker } from "./IconPicker";
@@ -91,6 +92,8 @@ export function HabitList() {
   const [newIds, setNewIds] = useState<string[]>([]);
   // Local date of "today"; empty until mounted so the static build never bakes in a date.
   const [today, setToday] = useState("");
+  // Which view is shown; in-page state only (no route, nothing stored). Starts on Today.
+  const [view, setView] = useState<View>("today");
 
   const [addName, setAddName] = useState("");
   const [addIcon, setAddIcon] = useState<string | undefined>();
@@ -287,43 +290,47 @@ export function HabitList() {
 
   return (
     <section>
-      <form className={styles.addForm} onSubmit={submitAdd} noValidate>
-        <div className={styles.addRow}>
-          <input
-            ref={addInputRef}
-            data-focus="add-input"
-            className={styles.input}
-            type="text"
-            aria-label="New habit name"
-            placeholder="New habit, e.g. Drink 2L water"
-            value={addName}
-            aria-invalid={addError ? true : undefined}
-            aria-describedby={addError ? "add-error" : undefined}
-            onChange={(e) => {
-              setAddName(e.target.value);
-              setAddError(null);
+      <AppNav view={view} onChange={setView} />
+
+      {view === "habits" && (
+        <form className={styles.addForm} onSubmit={submitAdd} noValidate>
+          <div className={styles.addRow}>
+            <input
+              ref={addInputRef}
+              data-focus="add-input"
+              className={styles.input}
+              type="text"
+              aria-label="New habit name"
+              placeholder="New habit, e.g. Drink 2L water"
+              value={addName}
+              aria-invalid={addError ? true : undefined}
+              aria-describedby={addError ? "add-error" : undefined}
+              onChange={(e) => {
+                setAddName(e.target.value);
+                setAddError(null);
+              }}
+            />
+            <button type="submit" className={styles.primaryButton}>
+              Add
+            </button>
+          </div>
+          <IconPicker value={addIcon} onChange={setAddIcon} label="Icon (optional)" />
+          <ScheduleFields
+            idPrefix="add"
+            draft={addSchedule}
+            errors={addScheduleErrors}
+            onChange={(draft) => {
+              setAddSchedule(draft);
+              setAddScheduleErrors({});
             }}
           />
-          <button type="submit" className={styles.primaryButton}>
-            Add
-          </button>
-        </div>
-        <IconPicker value={addIcon} onChange={setAddIcon} label="Icon (optional)" />
-        <ScheduleFields
-          idPrefix="add"
-          draft={addSchedule}
-          errors={addScheduleErrors}
-          onChange={(draft) => {
-            setAddSchedule(draft);
-            setAddScheduleErrors({});
-          }}
-        />
-        {addError && (
-          <p id="add-error" role="alert" className={styles.error}>
-            {addError}
-          </p>
-        )}
-      </form>
+          {addError && (
+            <p id="add-error" role="alert" className={styles.error}>
+              {addError}
+            </p>
+          )}
+        </form>
+      )}
 
       {storageError && (
         <p role="alert" className={styles.storageError}>
@@ -344,29 +351,36 @@ export function HabitList() {
         </p>
       )}
 
-      {loaded && habits.length === 0 && (
+      {loaded && habits.length === 0 && view !== "week" && (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>No habits yet</p>
           <button
             type="button"
             className={styles.primaryButton}
-            onClick={() => addInputRef.current?.focus()}
+            onClick={() => {
+              if (view === "today") {
+                pendingFocus.current = `[data-focus="add-input"]`;
+                setView("habits");
+              } else {
+                addInputRef.current?.focus();
+              }
+            }}
           >
             Add your first habit
           </button>
         </div>
       )}
 
-      {loaded && summary.total > 0 && (
+      {loaded && view === "today" && summary.total > 0 && (
         <p className={styles.todaySummary} aria-live="polite">
           {summary.done} of {summary.total} done today
         </p>
       )}
 
-      {loaded && habits.length > 0 && (
+      {loaded && view !== "week" && habits.length > 0 && (
         <ul className={styles.list}>
           {habits.map((habit) => {
-            const isEditing = editing?.id === habit.id;
+            const isEditing = view === "habits" && editing?.id === habit.id;
             const status = todayStatus(habit, today);
             const done = status === "checkable" && isChecked(checkins, habit.id, today);
             return (
@@ -379,7 +393,7 @@ export function HabitList() {
                 className={[
                   styles.row,
                   status === "not-scheduled" ? styles.dimmed : "",
-                  done ? styles.done : "",
+                  view === "today" && done ? styles.done : "",
                 ].join(" ")}
               >
                 {isEditing && editing ? (
@@ -439,7 +453,7 @@ export function HabitList() {
                   </form>
                 ) : (
                   <>
-                    {status === "checkable" && (
+                    {view === "today" && status === "checkable" && (
                       <input
                         type="checkbox"
                         className={styles.check}
@@ -453,40 +467,46 @@ export function HabitList() {
                       {iconEmoji(habit.icon)}
                     </span>
                     <span className={styles.name}>{habit.name}</span>
-                    <button
-                      type="button"
-                      data-focus={`edit-${habit.id}`}
-                      className={styles.button}
-                      aria-label={`Edit ${habit.name}`}
-                      onClick={() => startEdit(habit)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      data-focus={`delete-${habit.id}`}
-                      className={styles.button}
-                      aria-label={`Delete ${habit.name}`}
-                      onClick={() => openDelete(habit.id)}
-                    >
-                      Delete
-                    </button>
-                    {done && <span className={styles.doneLabel}>✓ Done</span>}
-                    {status === "not-scheduled" && (
+                    {view === "habits" && (
+                      <>
+                        <button
+                          type="button"
+                          data-focus={`edit-${habit.id}`}
+                          className={styles.button}
+                          aria-label={`Edit ${habit.name}`}
+                          onClick={() => startEdit(habit)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          data-focus={`delete-${habit.id}`}
+                          className={styles.button}
+                          aria-label={`Delete ${habit.name}`}
+                          onClick={() => openDelete(habit.id)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                    {view === "today" && done && <span className={styles.doneLabel}>✓ Done</span>}
+                    {view === "today" && status === "not-scheduled" && (
                       <span className={styles.statusLabel}>{NOT_SCHEDULED_TEXT}</span>
                     )}
-                    {status === "not-started" && (
+                    {view === "today" && status === "not-started" && (
                       <span className={styles.statusLabel}>
                         Starts {formatDate(habit.startDate)}
                       </span>
                     )}
-                    <p className={styles.summary}>
-                      {summarize(habit)}
-                      {hasEnded(habit, toLocalDate(new Date())) && (
-                        <span className={styles.ended}>Ended {formatDate(habit.endDate!)}</span>
-                      )}
-                    </p>
-                    {!checkinError && today && (
+                    {view === "habits" && (
+                      <p className={styles.summary}>
+                        {summarize(habit)}
+                        {hasEnded(habit, toLocalDate(new Date())) && (
+                          <span className={styles.ended}>Ended {formatDate(habit.endDate!)}</span>
+                        )}
+                      </p>
+                    )}
+                    {view === "today" && !checkinError && today && (
                       <StreakLine
                         streak={currentStreak(habit, checkins, today)}
                         ended={hasEnded(habit, today)}
@@ -500,7 +520,7 @@ export function HabitList() {
         </ul>
       )}
 
-      {loaded && (
+      {loaded && view === "week" && (
         <section aria-labelledby="week-heading" className={styles.weekSection}>
           <h2 id="week-heading" className={styles.weekHeading}>
             Week
@@ -509,7 +529,7 @@ export function HabitList() {
         </section>
       )}
 
-      {loaded && (
+      {loaded && view === "today" && (
         <section aria-labelledby="badges-heading" className={styles.weekSection}>
           <h2 id="badges-heading" className={styles.weekHeading}>
             Badges
