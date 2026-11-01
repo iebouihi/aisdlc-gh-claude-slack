@@ -193,6 +193,15 @@
   border-radius: var(--radius);
 }
 
+.weekSection {
+  margin-top: 32px;
+}
+
+.weekHeading {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
 .todaySummary {
   margin: 16px 0 0;
   font-weight: 600;

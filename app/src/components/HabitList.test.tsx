@@ -206,7 +206,7 @@ describe("HabitList", () => {
     localStorage.setItem(HABITS_KEY, "{not json");
     render(<HabitList />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByText("No habits yet")).toBeInTheDocument();
+    expect(screen.getAllByText("No habits yet").length).toBeGreaterThan(0);
   });
 
   it("AC15 (#1): a failed save shows the error and keeps the change for the session", async () => {
@@ -231,7 +231,8 @@ describe("HabitList", () => {
   it("AC16 (#1): the empty state shows and its button focuses the add input", async () => {
     const user = userEvent.setup();
     render(<HabitList />);
-    expect(screen.getByText("No habits yet")).toBeInTheDocument();
+    // Shown in the Today list and in the Week section.
+    expect(screen.getAllByText("No habits yet")).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Add your first habit" }));
     expect(addInput()).toHaveFocus();
   });

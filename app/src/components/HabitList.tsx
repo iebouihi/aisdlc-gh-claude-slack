@@ -38,6 +38,7 @@ import {
   scheduleFromDraft,
   type ScheduleDraft,
 } from "./ScheduleFields";
+import { WeekView } from "./WeekView";
 import styles from "./HabitList.module.css";
 
 const STORAGE_ERROR =
@@ -438,6 +439,15 @@ export function HabitList() {
             );
           })}
         </ul>
+      )}
+
+      {loaded && (
+        <section aria-labelledby="week-heading" className={styles.weekSection}>
+          <h2 id="week-heading" className={styles.weekHeading}>
+            Week
+          </h2>
+          <WeekView habits={habits} checkins={checkins} today={today} />
+        </section>
       )}
 
       {habitToDelete && (

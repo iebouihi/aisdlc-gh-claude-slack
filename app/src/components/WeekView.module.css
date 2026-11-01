@@ -1,0 +1,92 @@
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+
+.caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 8px;
+}
+
+.habitHead,
+.habitCell {
+  width: 34%;
+  text-align: left;
+  font-weight: 600;
+  padding: 6px 4px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+}
+
+.dayHead,
+.todayHead {
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 4px 0;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.todayHead {
+  color: var(--accent);
+}
+
+.todayMark {
+  display: block;
+  font-size: 0.65rem;
+}
+
+.summary {
+  display: block;
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.cell {
+  position: relative;
+  text-align: center;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.todayCell {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.done {
+  color: var(--accent);
+}
+
+.missed {
+  color: var(--danger);
+}
+
+.not-scheduled,
+.not-active,
+.pending {
+  color: var(--muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.legend {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.empty {
+  margin: 24px 0;
+  font-weight: 600;
+}
