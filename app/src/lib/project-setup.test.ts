@@ -45,6 +45,35 @@ describe("project setup", () => {
     expect(Object.keys(pkg.dependencies).sort()).toEqual(["next", "react", "react-dom"]);
   });
 
+  it("AC11 (#27): runtime dependencies are only Next.js and React; no Tailwind or UI library", () => {
+    expect(Object.keys(pkg.dependencies).sort()).toEqual(["next", "react", "react-dom"]);
+    expect(Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).join(" ")).not.toMatch(
+      /tailwind|@mui|chakra|antd|bootstrap|@radix-ui|mantine|styled-components/,
+    );
+  });
+
+  it("AC12 (#27): colours come from the design-token stylesheet; system font stack", () => {
+    const tokens = read("src/app/tokens.css");
+    expect(tokens).toMatch(/--accent:/);
+    expect(tokens).toMatch(/--font-sans:\s*system-ui/);
+    expect(read("src/app/globals.css")).toMatch(/@import "\.\/tokens\.css"/);
+    const sheets = ["src/app/globals.css", "src/app/page.module.css"];
+    for (const dir of ["src/components"]) {
+      for (const f of readdirSync(join(root, dir))) {
+        if (f.endsWith(".module.css")) sheets.push(`${dir}/${f}`);
+      }
+    }
+    for (const sheet of sheets) {
+      expect(read(sheet), sheet).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
+    }
+  });
+
+  it("AC15 (#27): the light theme is always used; no dark mode styles", () => {
+    const css = [read("src/app/tokens.css"), read("src/app/globals.css")].join("\n");
+    expect(css).toMatch(/color-scheme:\s*light;/);
+    expect(css).not.toMatch(/prefers-color-scheme|color-scheme:[^;]*dark/);
+  });
+
   it("AC15 (#7): no deployment config and no end-to-end tests", () => {
     const names = readdirSync(root);
     expect(names).not.toContain("vercel.json");

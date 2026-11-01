@@ -1,6 +1,6 @@
 ---
 updated: 2026-11-01
-issues: [1, 2, 3, 4, 7, 12, 15, 24]
+issues: [1, 2, 3, 4, 7, 12, 15, 24, 27]
 ---
 
 # good-habit-tracker: code map
@@ -16,8 +16,9 @@ _What_ the product does lives in `specs/`; this file says _where_ and _how_ it i
 - React, TypeScript (strict). No state library; React state and small custom hooks.
 - Tests: Vitest + Testing Library (jsdom). `npm run check` = lint + typecheck + tests + build.
 - Tooling: ESLint (`eslint-config-next`), Prettier (`npm run format`), Node 26 (`.nvmrc` = `26`, `engines.node` = `26.x`).
-- Styling: a global stylesheet with CSS variables (`src/app/globals.css`), light and dark, plus
-  CSS Modules per page/component (`*.module.css`). No Tailwind or UI library.
+- Styling: a design-token stylesheet (`src/app/tokens.css`: colours, spacing, type, radius; light
+  only, one accent) imported by `src/app/globals.css`, plus CSS Modules per page/component
+  (`*.module.css`). No Tailwind or UI library, no dark mode.
 
 ## Structure
 
@@ -40,6 +41,8 @@ _What_ the product does lives in `specs/`; this file says _where_ and _how_ it i
 | Streaks         | `src/lib/streak.ts` (`currentStreak`, `streakText`, `NO_STREAK_TEXT`; pure) and `StreakLine` in `HabitList.tsx` (icon + text under each today-list row; no new storage)                                                                                                                                                                                                 | habits/habit-streaks                           |
 | Weekly overview | `src/lib/week.ts` (`weekWindow`, `cellState`, `weekRows`, `summaryText`; pure) and `src/components/WeekView.tsx` + `WeekView.module.css` (read-only table, rendered by `HabitList` in a "Week" section below the today list; no new storage)                                                                                                                            | habits/weekly-overview                         |
 | Badges          | `src/lib/badges.ts` (`BADGES`, `bestStreak`, `awardBadges`, `newBadgeIds`, `parseBadges`; pure) and `src/components/Badges.tsx` + `Badges.module.css` (read-only groups, rendered by `HabitList` in a "Badges" section below the Week section). Stored in `badges:v1` (`BADGES_KEY`)                                                                                    | habits/discipline-badges                       |
+| App navigation  | `src/components/AppNav.tsx` + `AppNav.module.css` (top nav, three buttons: Today, Week, Habits; `aria-current="page"`, bold + underline) and `View` state in `HabitList`. Today = check-in list, streaks, Badges; Week = `WeekView`; Habits = add form, edit, delete. Tests use `src/components/test-utils.tsx` (`renderView`, `goTo`) | platform/app-navigation                        |
+| Design tokens   | `src/app/tokens.css` (the only place with colour values; `color-scheme: light`), checked by `project-setup.test.ts`                                                                                                                                                                                                                                                     | platform/ui-design-system                      |
 | Setup checks    | `src/lib/project-setup.test.ts` (config and dependency rules)                                                                                                                                                                                                                                                                                                           | platform/app-foundation                        |
 
 ## Conventions
@@ -72,6 +75,8 @@ _What_ the product does lives in `specs/`; this file says _where_ and _how_ it i
 - **The Week view is computed, never stored:** `weekRows(habits, checkins, today)` derives cells from `habits:v1` and `checkins:v1` using `HabitList`'s `today`, so it follows toggles and date changes. A check-in always shows as done; it counts in "x of y" only on scheduled, active days. Cell state is an icon plus visually hidden text (`<habit>, <weekday> <day>: <state>`).
 - **Streaks are computed, never stored:** `currentStreak(habit, checkins, today)` walks back from today (or the end date) to the start date counting checked scheduled days; unscheduled days are skipped, an unchecked today is neither counted nor breaking. Shown only in the today list, and hidden when `checkins:v1` is in error. The row text has a visually hidden "Run: " prefix (class `visuallyHidden`).
 - **Badges are a fixed set in code; only the earned ones are stored** (`badges:v1` = `[{badgeId, earnedAt}]`, one per badge, never removed). `awardBadges` uses `bestStreak` (longest past or current run of a single habit, same counting as `currentStreak`) and runs on load and after each toggle, dating new badges `today`. "New" labels live in `HabitList` state only, so they vanish on the next load. Corrupted badges: error alert (only if no other storage alert), all Locked, nothing written until a toggle earns a badge. Badges render as `role="group"` blocks (not a list) with the "New" label as `aria-live="polite"`, so they don't collide with the habit list's `listitem` and `status` queries.
+- **Views are in-page state, not routes:** `HabitList` keeps `view` (`today` | `week` | `habits`, starts on Today; not stored, no URL change). All data state stays in `HabitList`, so switching views loses nothing. Today's "Add your first habit" button opens Habits and focuses the add input through `pendingFocus`. This supersedes the "Week section below the today list" and "Badges section below the Week section" layout above: Week is its own view, Badges render in the Today view.
+- **Colours and spacing come from tokens:** CSS Modules use `var(--…)` from `tokens.css`; no hex or `rgb()` literals in any stylesheet (enforced by a test).
 - **Modals are hand-written** (`DeleteDialog`: focus trap, Escape), not native `<dialog>`.
 - Client components start with `"use client"` only where they need state or effects.
 - Runtime dependencies are only `next`, `react`, `react-dom` (enforced by a test).

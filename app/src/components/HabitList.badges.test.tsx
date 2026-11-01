@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HabitList } from "./HabitList";
@@ -73,8 +73,10 @@ describe("HabitList badges", () => {
     await user.click(box);
     await user.click(box);
     expect(badge("First Step").getByText("Earned on 1 Nov")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Habits" }));
     await user.click(screen.getByRole("button", { name: "Delete Run" }));
     await user.click(screen.getByRole("button", { name: /^delete$/i }));
+    await user.click(screen.getByRole("button", { name: "Today" }));
     expect(badge("First Step").getByText("Earned on 1 Nov")).toBeInTheDocument();
     expect(stored()).toEqual([{ badgeId: "first-step", earnedAt: "2026-11-01" }]);
   });
@@ -125,6 +127,7 @@ describe("HabitList badges", () => {
   it("AC17 (#24): the weekly overview is still shown", () => {
     seed([habit("1", "Run")], []);
     render(<HabitList />);
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
     expect(screen.getByRole("heading", { name: "Week" })).toBeInTheDocument();
   });
 });
