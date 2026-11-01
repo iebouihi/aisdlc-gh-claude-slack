@@ -9,6 +9,16 @@ import {
   validateName,
   type Habit,
 } from "@/lib/habits";
+import {
+  NOT_SCHEDULED_TEXT,
+  isChecked,
+  parseCheckins,
+  removeCheckInsFor,
+  todayStatus,
+  todaySummary,
+  toggleCheckIn,
+  type CheckIn,
+} from "@/lib/checkins";
 import { iconEmoji } from "@/lib/icons";
 import {
   formatDate,
@@ -19,7 +29,7 @@ import {
   validateSchedule,
   type ScheduleErrors,
 } from "@/lib/schedule";
-import { HABITS_KEY, readJson, writeJson } from "@/lib/storage";
+import { CHECKINS_KEY, HABITS_KEY, readJson, writeJson } from "@/lib/storage";
 import { DeleteDialog } from "./DeleteDialog";
 import { IconPicker } from "./IconPicker";
 import {
@@ -32,6 +42,9 @@ import styles from "./HabitList.module.css";
 
 const STORAGE_ERROR =
   "Your habits could not be loaded or saved. Changes may be lost when you close this page.";
+
+const CHECKIN_ERROR =
+  "Your check-ins could not be loaded or saved. Changes may be lost when you close this page.";
 
 type Editing = {
   id: string;
@@ -51,6 +64,10 @@ export function HabitList() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [storageError, setStorageError] = useState(false);
+  const [checkins, setCheckins] = useState<CheckIn[]>([]);
+  const [checkinError, setCheckinError] = useState(false);
+  // Local date of "today"; empty until mounted so the static build never bakes in a date.
+  const [today, setToday] = useState("");
 
   const [addName, setAddName] = useState("");
   const [addIcon, setAddIcon] = useState<string | undefined>();
@@ -78,8 +95,31 @@ export function HabitList() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (parsed === null) setStorageError(true);
     else setHabits(parsed);
+    const checkinResult = readJson(CHECKINS_KEY);
+    const parsedCheckins = checkinResult.ok ? parseCheckins(checkinResult.value) : null;
+    if (parsedCheckins === null) setCheckinError(true);
+    else setCheckins(parsedCheckins);
+    setToday(toLocalDate(new Date()));
     setAddSchedule(newDraft());
     setLoaded(true);
+  }, []);
+
+  // The date can change while the app stays open: refresh on focus and on any interaction (D5).
+  useEffect(() => {
+    function refresh() {
+      const now = toLocalDate(new Date());
+      setToday((current) => (current === now ? current : now));
+    }
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    document.addEventListener("pointerdown", refresh, true);
+    document.addEventListener("keydown", refresh, true);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      document.removeEventListener("pointerdown", refresh, true);
+      document.removeEventListener("keydown", refresh, true);
+    };
   }, []);
 
   // Move focus after a render, once the target element exists.
@@ -111,6 +151,17 @@ export function HabitList() {
   function persist(next: Habit[]) {
     setHabits(next);
     setStorageError(!writeJson(HABITS_KEY, next).ok);
+  }
+
+  /** Show the new check-ins at once and try to save them; a failed save keeps them for the session. */
+  function persistCheckins(next: CheckIn[]) {
+    setCheckins(next);
+    setCheckinError(!writeJson(CHECKINS_KEY, next).ok);
+  }
+
+  function toggle(habitId: string) {
+    // Only today can be checked (D3): the date never comes from anywhere else.
+    persistCheckins(toggleCheckIn(checkins, habitId, today));
   }
 
   function submitAdd(e: React.FormEvent) {
@@ -178,9 +229,12 @@ export function HabitList() {
     const target = next[index] ?? next[index - 1];
     pendingFocus.current = target ? `[data-focus="row-${target.id}"]` : `[data-focus="add-input"]`;
     persist(next);
+    const remaining = removeCheckInsFor(checkins, deleteId);
+    if (remaining.length !== checkins.length) persistCheckins(remaining);
     setDeleteId(null);
   }
 
+  const summary = todaySummary(habits, checkins, today);
   const habitToDelete = habits.find((h) => h.id === deleteId);
 
   return (
@@ -229,6 +283,13 @@ export function HabitList() {
         </p>
       )}
 
+      {/* One alert when all storage is broken: the habits message already says changes may be lost. */}
+      {checkinError && !storageError && (
+        <p role="alert" className={styles.storageError}>
+          {CHECKIN_ERROR}
+        </p>
+      )}
+
       {loaded && habits.length === 0 && (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>No habits yet</p>
@@ -242,10 +303,18 @@ export function HabitList() {
         </div>
       )}
 
+      {loaded && summary.total > 0 && (
+        <p className={styles.todaySummary} aria-live="polite">
+          {summary.done} of {summary.total} done today
+        </p>
+      )}
+
       {loaded && habits.length > 0 && (
         <ul className={styles.list}>
           {habits.map((habit) => {
             const isEditing = editing?.id === habit.id;
+            const status = todayStatus(habit, today);
+            const done = status === "checkable" && isChecked(checkins, habit.id, today);
             return (
               <li
                 key={habit.id}
@@ -253,7 +322,11 @@ export function HabitList() {
                 data-focus={`row-${habit.id}`}
                 tabIndex={-1}
                 aria-label={isEditing ? undefined : habit.name}
-                className={styles.row}
+                className={[
+                  styles.row,
+                  status === "not-scheduled" ? styles.dimmed : "",
+                  done ? styles.done : "",
+                ].join(" ")}
               >
                 {isEditing && editing ? (
                   <form
@@ -312,6 +385,16 @@ export function HabitList() {
                   </form>
                 ) : (
                   <>
+                    {status === "checkable" && (
+                      <input
+                        type="checkbox"
+                        className={styles.check}
+                        data-focus={`check-${habit.id}`}
+                        aria-label={`Done today: ${habit.name}`}
+                        checked={done}
+                        onChange={() => toggle(habit.id)}
+                      />
+                    )}
                     <span className={styles.icon} aria-hidden="true">
                       {iconEmoji(habit.icon)}
                     </span>
@@ -334,6 +417,15 @@ export function HabitList() {
                     >
                       Delete
                     </button>
+                    {done && <span className={styles.doneLabel}>✓ Done</span>}
+                    {status === "not-scheduled" && (
+                      <span className={styles.statusLabel}>{NOT_SCHEDULED_TEXT}</span>
+                    )}
+                    {status === "not-started" && (
+                      <span className={styles.statusLabel}>
+                        Starts {formatDate(habit.startDate)}
+                      </span>
+                    )}
                     <p className={styles.summary}>
                       {summarize(habit)}
                       {hasEnded(habit, toLocalDate(new Date())) && (

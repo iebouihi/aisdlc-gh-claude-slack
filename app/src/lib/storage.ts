@@ -1,6 +1,7 @@
 /** Client-only localStorage helper: reads and writes JSON under a key and never throws. */
 
 export const HABITS_KEY = "habits:v1";
+export const CHECKINS_KEY = "checkins:v1";
 
 export type StorageFailureReason = "unavailable" | "corrupted";
 

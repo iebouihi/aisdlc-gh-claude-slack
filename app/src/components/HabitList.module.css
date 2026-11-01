@@ -193,6 +193,48 @@
   border-radius: var(--radius);
 }
 
+.todaySummary {
+  margin: 16px 0 0;
+  font-weight: 600;
+}
+
+.check {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.check:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dimmed .icon {
+  opacity: 0.5;
+}
+
+/* Text stays at 0.8 so it keeps AA contrast (the label carries the meaning, not the dimming). */
+.dimmed .name,
+.dimmed .summary {
+  opacity: 0.8;
+}
+
+.done {
+  background: var(--border);
+}
+
+.doneLabel,
+.statusLabel {
+  padding: 0 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius);
+}
+
 .backdrop {
   position: fixed;
   inset: 0;

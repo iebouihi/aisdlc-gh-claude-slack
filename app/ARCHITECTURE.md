@@ -1,6 +1,6 @@
 ---
-updated: 2026-10-31
-issues: [1, 7, 12, 15]
+updated: 2026-11-01
+issues: [1, 2, 7, 12, 15]
 ---
 # good-habit-tracker: code map
 
@@ -28,10 +28,11 @@ that changes structure, a convention or a module updates this file (see the `cod
 | Module | Files | Spec |
 |---|---|---|
 | App shell | `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/page.module.css` | platform/app-foundation |
-| Storage helper | `src/lib/storage.ts` (`readJson`, `writeJson`, `HABITS_KEY` = `habits:v1`; return a `StorageResult`) | platform/app-foundation |
+| Storage helper | `src/lib/storage.ts` (`readJson`, `writeJson`, `HABITS_KEY` = `habits:v1`, `CHECKINS_KEY` = `checkins:v1`; return a `StorageResult`) | platform/app-foundation |
 | Habit domain | `src/lib/habits.ts` (`validateName`, `parseHabits`, `addHabit`, `updateHabit`, `removeHabit`; pure) and `src/lib/icons.ts` (24-emoji `ICON_CATALOG`, `iconEmoji` with default fallback) | habits/habit-management |
 | Schedule domain | `src/lib/schedule.ts` (`Frequency`, `Schedule`, `validateSchedule`, `parseFrequency`, `isLocalDate`, `toLocalDate`, `summarize`, `hasEnded`, error texts; pure). `Habit` has required `frequency` and `startDate` in memory, optional `endDate` | habits/habit-management |
-| Habit UI | `src/components/HabitList.tsx` (state, storage wiring, add form, inline edit, focus), `ScheduleFields.tsx` (frequency radios, weekday checkboxes, date inputs, draft helpers), `IconPicker.tsx`, `DeleteDialog.tsx`, `HabitList.module.css`; rendered by `src/app/page.tsx` | habits/habit-management |
+| Check-in domain | `src/lib/checkins.ts` (`CheckIn`, `todayStatus`, `parseCheckins`, `isChecked`, `toggleCheckIn`, `removeCheckInsFor`, `todaySummary`; pure) | habits/daily-check-in |
+| Habit UI | `src/components/HabitList.tsx` (state, storage wiring, add form, inline edit, focus), `ScheduleFields.tsx` (frequency radios, weekday checkboxes, date inputs, draft helpers), `IconPicker.tsx`, `DeleteDialog.tsx`, `HabitList.module.css`; rendered by `src/app/page.tsx`. `HabitList` also owns check-in state, the row checkbox and the "x of y done today" summary | habits/habit-management, habits/daily-check-in |
 | Setup checks | `src/lib/project-setup.test.ts` (config and dependency rules) | platform/app-foundation |
 
 ## Conventions
@@ -59,6 +60,7 @@ that changes structure, a convention or a module updates this file (see the `cod
 - **Edit validation compares with the stored habit** (`validateSchedule(…, today, previous)`): the
   past-date rule applies only to a changed start or end date. The add form's start date is set in
   the load effect, so the static build never contains a build-time date.
+- **Check-ins are `{habitId, date}` entries in `checkins:v1`**, separate from `habits:v1`. `HabitList` keeps `today` in state (empty until mounted) and refreshes it on window focus, `visibilitychange` and any pointerdown/keydown; toggles always use that `today`. Corrupted check-ins start empty and are not overwritten until a save; deleting a habit removes its entries. If habits storage already shows an error, the check-in error is not shown twice.
 - **Modals are hand-written** (`DeleteDialog`: focus trap, Escape), not native `<dialog>`.
 - Client components start with `"use client"` only where they need state or effects.
 - Runtime dependencies are only `next`, `react`, `react-dom` (enforced by a test).
