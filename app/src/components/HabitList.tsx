@@ -20,6 +20,7 @@ import {
   type CheckIn,
 } from "@/lib/checkins";
 import { iconEmoji } from "@/lib/icons";
+import { currentStreak, streakText } from "@/lib/streak";
 import {
   formatDate,
   hasEnded,
@@ -59,6 +60,18 @@ type Editing = {
 /** The add form starts as Daily from today, with no end date. */
 function newDraft(): ScheduleDraft {
   return { type: "daily", days: [], startDate: toLocalDate(new Date()), endDate: "" };
+}
+
+/** A row's current streak: icon + text, never colour alone; "Ended" for a finished habit. */
+function StreakLine({ streak, ended }: { streak: number; ended: boolean }) {
+  return (
+    <p className={styles.streak}>
+      <span aria-hidden="true">{streak > 0 ? "🔥" : "⛓️"}</span>
+      {streak > 0 && <span className={styles.visuallyHidden}>Run: </span>}
+      <span>{streakText(streak)}</span>
+      {ended && <span className={styles.ended}>Ended</span>}
+    </p>
+  );
 }
 
 export function HabitList() {
@@ -433,6 +446,12 @@ export function HabitList() {
                         <span className={styles.ended}>Ended {formatDate(habit.endDate!)}</span>
                       )}
                     </p>
+                    {!checkinError && today && (
+                      <StreakLine
+                        streak={currentStreak(habit, checkins, today)}
+                        ended={hasEnded(habit, today)}
+                      />
+                    )}
                   </>
                 )}
               </li>
