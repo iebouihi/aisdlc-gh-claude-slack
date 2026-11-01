@@ -1,0 +1,63 @@
+.list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.badge {
+  flex: 1 1 140px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+.locked {
+  border-style: dashed;
+}
+
+.locked .logo {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.logo {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.state,
+.rule {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.locked .state::before {
+  content: "🔒 ";
+}
+
+.earned .state::before {
+  content: "✓ ";
+}
+
+.newLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+}

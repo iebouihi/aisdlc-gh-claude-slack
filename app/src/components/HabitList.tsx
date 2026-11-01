@@ -19,6 +19,7 @@ import {
   toggleCheckIn,
   type CheckIn,
 } from "@/lib/checkins";
+import { awardBadges, newBadgeIds, parseBadges, type EarnedBadge } from "@/lib/badges";
 import { iconEmoji } from "@/lib/icons";
 import { currentStreak, streakText } from "@/lib/streak";
 import {
@@ -30,7 +31,8 @@ import {
   validateSchedule,
   type ScheduleErrors,
 } from "@/lib/schedule";
-import { CHECKINS_KEY, HABITS_KEY, readJson, writeJson } from "@/lib/storage";
+import { BADGES_KEY, CHECKINS_KEY, HABITS_KEY, readJson, writeJson } from "@/lib/storage";
+import { Badges } from "./Badges";
 import { DeleteDialog } from "./DeleteDialog";
 import { IconPicker } from "./IconPicker";
 import {
@@ -47,6 +49,9 @@ const STORAGE_ERROR =
 
 const CHECKIN_ERROR =
   "Your check-ins could not be loaded or saved. Changes may be lost when you close this page.";
+
+const BADGE_ERROR =
+  "Your badges could not be loaded or saved. Changes may be lost when you close this page.";
 
 type Editing = {
   id: string;
@@ -80,6 +85,10 @@ export function HabitList() {
   const [storageError, setStorageError] = useState(false);
   const [checkins, setCheckins] = useState<CheckIn[]>([]);
   const [checkinError, setCheckinError] = useState(false);
+  const [badges, setBadges] = useState<EarnedBadge[]>([]);
+  const [badgeError, setBadgeError] = useState(false);
+  // Badges earned during this visit; in memory only, so "New" disappears on the next load.
+  const [newIds, setNewIds] = useState<string[]>([]);
   // Local date of "today"; empty until mounted so the static build never bakes in a date.
   const [today, setToday] = useState("");
 
@@ -113,7 +122,22 @@ export function HabitList() {
     const parsedCheckins = checkinResult.ok ? parseCheckins(checkinResult.value) : null;
     if (parsedCheckins === null) setCheckinError(true);
     else setCheckins(parsedCheckins);
-    setToday(toLocalDate(new Date()));
+    const now = toLocalDate(new Date());
+    const badgeResult = readJson(BADGES_KEY);
+    const parsedBadges = badgeResult.ok ? parseBadges(badgeResult.value) : null;
+    if (parsedBadges === null) {
+      // Show all locked and leave the stored value alone until the user saves a change (D10).
+      setBadgeError(true);
+    } else {
+      const awarded = awardBadges(parsedBadges, parsed ?? [], parsedCheckins ?? [], now);
+      setBadges(awarded);
+      const added = newBadgeIds(parsedBadges, awarded);
+      if (added.length > 0) {
+        setNewIds(added);
+        setBadgeError(!writeJson(BADGES_KEY, awarded).ok);
+      }
+    }
+    setToday(now);
     setAddSchedule(newDraft());
     setLoaded(true);
   }, []);
@@ -175,7 +199,17 @@ export function HabitList() {
 
   function toggle(habitId: string) {
     // Only today can be checked (D3): the date never comes from anywhere else.
-    persistCheckins(toggleCheckIn(checkins, habitId, today));
+    const next = toggleCheckIn(checkins, habitId, today);
+    persistCheckins(next);
+    // Badges are only ever added; unchecking never removes one. After a corrupted read the
+    // list starts empty, and this save overwrites the corrupted value.
+    const awarded = awardBadges(badges, habits, next, today);
+    const added = newBadgeIds(badges, awarded);
+    if (added.length > 0) {
+      setBadges(awarded);
+      setNewIds((ids) => [...ids, ...added]);
+      setBadgeError(!writeJson(BADGES_KEY, awarded).ok);
+    }
   }
 
   function submitAdd(e: React.FormEvent) {
@@ -301,6 +335,12 @@ export function HabitList() {
       {checkinError && !storageError && (
         <p role="alert" className={styles.storageError}>
           {CHECKIN_ERROR}
+        </p>
+      )}
+
+      {badgeError && !storageError && !checkinError && (
+        <p role="alert" className={styles.storageError}>
+          {BADGE_ERROR}
         </p>
       )}
 
@@ -466,6 +506,15 @@ export function HabitList() {
             Week
           </h2>
           <WeekView habits={habits} checkins={checkins} today={today} />
+        </section>
+      )}
+
+      {loaded && (
+        <section aria-labelledby="badges-heading" className={styles.weekSection}>
+          <h2 id="badges-heading" className={styles.weekHeading}>
+            Badges
+          </h2>
+          <Badges earned={badges} newIds={newIds} />
         </section>
       )}
 
