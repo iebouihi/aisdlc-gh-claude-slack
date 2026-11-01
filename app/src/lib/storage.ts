@@ -2,6 +2,7 @@
 
 export const HABITS_KEY = "habits:v1";
 export const CHECKINS_KEY = "checkins:v1";
+export const BADGES_KEY = "badges:v1";
 
 export type StorageFailureReason = "unavailable" | "corrupted";
 

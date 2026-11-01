@@ -118,7 +118,8 @@ describe("HabitList streaks", () => {
     render(<HabitList />);
     expect(row("Run").getByText("1-day streak")).toBeInTheDocument();
     expect([localStorage.getItem(HABITS_KEY), localStorage.getItem(CHECKINS_KEY)]).toEqual(before);
-    expect(localStorage.length).toBe(2);
+    // The only new key is badges:v1 (First Step is awarded from the existing check-in, #24).
+    expect(localStorage.length).toBe(3);
   });
 
   it("AC12 (#3): a legacy habit without frequency or dates counts as Daily from createdAt", () => {
@@ -170,7 +171,7 @@ describe("HabitList streaks", () => {
     localStorage.setItem(CHECKINS_KEY, "{not json");
     render(<HabitList />);
     expect(screen.getByRole("alert")).toHaveTextContent("check-ins could not be loaded");
-    expect(screen.queryByText(/streak/)).not.toBeInTheDocument();
+    expect(row("Run").queryByText(/streak/)).not.toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "Run" })).toBeInTheDocument();
   });
 });
