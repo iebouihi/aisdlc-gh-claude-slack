@@ -224,6 +224,45 @@
   font-size: 1.25rem;
 }
 
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  align-items: flex-start;
+}
+
+form.profile {
+  align-items: stretch;
+}
+
+.profileName {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.profileLabel {
+  font-weight: 600;
+}
+
+.welcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin: 16px 0 0;
+}
+
+.welcomeHeading {
+  margin: 0;
+  font-size: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.welcomeBadge {
+  margin: 0;
+}
+
 .todaySummary {
   margin: 16px 0 0;
   font-weight: 600;

@@ -19,7 +19,8 @@ import {
   toggleCheckIn,
   type CheckIn,
 } from "@/lib/checkins";
-import { awardBadges, newBadgeIds, parseBadges, type EarnedBadge } from "@/lib/badges";
+import { awardBadges, newBadgeIds, parseBadges, type Badge, type EarnedBadge } from "@/lib/badges";
+import { latestBadge, parseProfile, welcomeText } from "@/lib/profile";
 import { iconEmoji } from "@/lib/icons";
 import { currentStreak, streakText } from "@/lib/streak";
 import {
@@ -31,11 +32,19 @@ import {
   validateSchedule,
   type ScheduleErrors,
 } from "@/lib/schedule";
-import { BADGES_KEY, CHECKINS_KEY, HABITS_KEY, readJson, writeJson } from "@/lib/storage";
+import {
+  BADGES_KEY,
+  CHECKINS_KEY,
+  HABITS_KEY,
+  PROFILE_KEY,
+  readJson,
+  writeJson,
+} from "@/lib/storage";
 import { AppNav, type View } from "./AppNav";
 import { Badges } from "./Badges";
 import { DeleteDialog } from "./DeleteDialog";
 import { IconPicker } from "./IconPicker";
+import { ProfileName } from "./ProfileName";
 import {
   ScheduleFields,
   draftFromSchedule,
@@ -53,6 +62,9 @@ const CHECKIN_ERROR =
 
 const BADGE_ERROR =
   "Your badges could not be loaded or saved. Changes may be lost when you close this page.";
+
+const PROFILE_ERROR =
+  "Your name could not be loaded or saved. Changes may be lost when you close this page.";
 
 type Editing = {
   id: string;
@@ -88,6 +100,10 @@ export function HabitList() {
   const [checkinError, setCheckinError] = useState(false);
   const [badges, setBadges] = useState<EarnedBadge[]>([]);
   const [badgeError, setBadgeError] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileError, setProfileError] = useState(false);
+  // Badge shown in the welcome: fixed at load, so earning one during the visit changes nothing (D8).
+  const [welcomeBadge, setWelcomeBadge] = useState<Badge | null>(null);
   // Badges earned during this visit; in memory only, so "New" disappears on the next load.
   const [newIds, setNewIds] = useState<string[]>([]);
   // Local date of "today"; empty until mounted so the static build never bakes in a date.
@@ -134,12 +150,18 @@ export function HabitList() {
     } else {
       const awarded = awardBadges(parsedBadges, parsed ?? [], parsedCheckins ?? [], now);
       setBadges(awarded);
+      setWelcomeBadge(latestBadge(awarded));
       const added = newBadgeIds(parsedBadges, awarded);
       if (added.length > 0) {
         setNewIds(added);
         setBadgeError(!writeJson(BADGES_KEY, awarded).ok);
       }
     }
+    // A corrupted profile shows "Welcome" and stays untouched until the user saves a name (D10).
+    const profileResult = readJson(PROFILE_KEY);
+    const parsedProfile = profileResult.ok ? parseProfile(profileResult.value) : null;
+    if (parsedProfile === null) setProfileError(true);
+    else setProfileName(parsedProfile);
     setToday(now);
     setAddSchedule(newDraft());
     setLoaded(true);
@@ -198,6 +220,11 @@ export function HabitList() {
   function persistCheckins(next: CheckIn[]) {
     setCheckins(next);
     setCheckinError(!writeJson(CHECKINS_KEY, next).ok);
+  }
+
+  function saveProfileName(name: string) {
+    setProfileName(name);
+    setProfileError(!writeJson(PROFILE_KEY, { name }).ok);
   }
 
   function toggle(habitId: string) {
@@ -292,6 +319,8 @@ export function HabitList() {
     <section>
       <AppNav view={view} onChange={setView} />
 
+      {loaded && view === "habits" && <ProfileName name={profileName} onSave={saveProfileName} />}
+
       {view === "habits" && (
         <form className={styles.addForm} onSubmit={submitAdd} noValidate>
           <div className={styles.addRow}>
@@ -332,6 +361,17 @@ export function HabitList() {
         </form>
       )}
 
+      {loaded && view === "today" && (
+        <div className={styles.welcome}>
+          <h2 className={styles.welcomeHeading}>{welcomeText(profileName)}</h2>
+          {welcomeBadge && (
+            <p className={styles.welcomeBadge}>
+              <span aria-hidden="true">{welcomeBadge.logo}</span> {welcomeBadge.name}
+            </p>
+          )}
+        </div>
+      )}
+
       {storageError && (
         <p role="alert" className={styles.storageError}>
           {STORAGE_ERROR}
@@ -348,6 +388,12 @@ export function HabitList() {
       {badgeError && !storageError && !checkinError && (
         <p role="alert" className={styles.storageError}>
           {BADGE_ERROR}
+        </p>
+      )}
+
+      {profileError && !storageError && !checkinError && !badgeError && (
+        <p role="alert" className={styles.storageError}>
+          {PROFILE_ERROR}
         </p>
       )}
 
