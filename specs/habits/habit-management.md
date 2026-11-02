@@ -2,16 +2,16 @@
 id: habits/habit-management
 title: Habit management
 module: habits
-summary: Create, list, edit and delete habits with a name, optional catalog icon, frequency and start/end dates; stored only in the browser's localStorage.
+summary: Create, list, edit and delete habits with a name, optional catalog icon, frequency, start/end dates and optional cost and budget; stored only in the browser's localStorage.
 entities: [Habit]
 status: active
-issues: [1, 15, 2]
-updated: 2026-11-01
+issues: [1, 15, 2, 33]
+updated: 2026-11-02
 ---
 # Habit management
 
 ## Current behaviour
-- A Habit has a name, an optional icon chosen from a fixed built-in catalog, a frequency, a start date and an optional end date. The app is static Next.js, with no backend and no login.
+- A Habit has a name, an optional icon chosen from a fixed built-in catalog, a frequency, a start date, an optional end date, an optional cost and an optional budget. The app is static Next.js, with no backend and no login.
 - An add input is always visible at the top of the list, with an icon picker and a visible "Add" button next to it. Enter or "Add" saves the new habit with the same validation, and clears the input. No toast is shown.
 - The icon is optional. A habit without a valid icon shows a neutral default icon. The catalog is about 24 built-in emoji icons shipped in the code; there are no uploads and no network calls.
 - The picker is also available when editing a habit. It is fully keyboard-operable and each option has a text label. In the list the icon is decorative and the habit name is the accessible name.
@@ -20,10 +20,11 @@ updated: 2026-11-01
 - A new habit's start date must be today or later, and the end date must be on or after the start date. Errors: "Start date can't be in the past." and "End date must be on or after the start date."
 - When editing, the past-date rule applies only when the start date is changed or set; an unchanged past start date stays valid. A changed end date must be today or later.
 - "Today" is the device's local date, with no server check. A changed device clock can bypass the rules.
-- The frequency and date inputs are in the add form and the inline edit form, next to the name: native date inputs and a weekday checkbox group. They are labelled, errors are announced, and they are keyboard-operable and usable from 320px.
-- Each row shows a short schedule summary, e.g. "Daily · from 12 Nov" or "Mon, Wed, Fri · 12 Nov – 12 Dec".
+- Cost is optional: a fixed amount per check-in. Budget is optional: an amount plus a period, "Weekly" or "Monthly". Amounts are positive numbers with at most 2 decimals, up to 999999.99, with inline errors. A budget without a cost is not allowed. Spend and the budget summary are described in `habits/habit-budget`.
+- The frequency, date, cost and budget inputs are in the add form and the inline edit form, next to the name: native date inputs, a weekday checkbox group and amount inputs. They are labelled, errors are announced, and they are keyboard-operable and usable from 320px.
+- Each row shows a short schedule summary, e.g. "Daily · from 12 Nov" or "Mon, Wed, Fri · 12 Nov – 12 Dec", and, when the habit has a budget, the budget summary from `habits/habit-budget`.
 - When the end date has passed, the habit stays in the list, shown as "Ended" with its end date. It is not deleted or hidden. The schedule is used by `habits/daily-check-in` to decide whether a habit can be checked today.
-- A habit stored without frequency or dates is treated as Daily, starting on its `createdAt` date, with no end date. There is no migration and it is not corrupted.
+- A habit stored without frequency or dates is treated as Daily, starting on its `createdAt` date, with no end date. A habit stored without cost or budget simply has none. There is no migration and it is not corrupted.
 - The list shows habits in creation order, oldest first. New habits appear at the bottom. Habits cannot be reordered.
 - Names are trimmed and must be 1 to 60 characters, counted as Unicode characters (an emoji counts as 1). The input has no maxlength attribute, so pasted over-long text still shows the error.
 - Inline errors: empty "Enter a habit name."; over 60 characters "Name must be 60 characters or fewer."; duplicate "You already have this habit."
@@ -34,7 +35,7 @@ updated: 2026-11-01
 - Delete asks for confirmation in a dialog. Deletion is permanent, with no undo, and also deletes the habit's check-ins (see `habits/daily-check-in`). Opening the dialog while a row is being edited cancels that edit (original values kept). The dialog traps focus, Escape cancels, and focus returns to the row's Delete button on cancel.
 - Empty state shows "No habits yet" and a prominent "Add your first habit" button. The button focuses the add input.
 - Nothing is rendered in the list until storage has been read on the client, so the empty state never flashes.
-- If stored data is corrupted or localStorage is unavailable at load, a non-blocking error message is shown and the list starts empty. Valid JSON with a malformed entry (missing id or name, name over 60 characters, or a present but malformed `frequency`, `startDate` or `endDate`) counts as corrupted. A missing or unknown `icon`, or missing `frequency` and `startDate`, does not. The app never crashes. Corrupted data is not overwritten until the user saves a change.
+- If stored data is corrupted or localStorage is unavailable at load, a non-blocking error message is shown and the list starts empty. Valid JSON with a malformed entry (missing id or name, name over 60 characters, or a present but malformed `frequency`, `startDate`, `endDate`, `cost` or `budget`) counts as corrupted. A missing or unknown `icon`, or missing `frequency`, `startDate`, `cost` and `budget`, does not. The app never crashes. Corrupted data is not overwritten until the user saves a change.
 - If saving fails after load, the same non-blocking error is shown and the change stays visible for the current session.
 - Focus: after a delete it moves to the next habit's row, or to the add input if the list is empty. After an edit is saved or cancelled it returns to that row's edit button.
 - Accessibility: everything is keyboard-operable, with labelled inputs, visible focus, errors announced to screen readers, and WCAG 2.1 AA contrast.
@@ -84,29 +85,35 @@ updated: 2026-11-01
 | D38 | Text buttons "Edit" and "Delete" with accessible names including the habit name; delete dialog traps focus, Escape cancels, focus returns to the row's Delete button on cancel | #1 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793399488815919?thread_ts=1793399488.815919&cid=C0CDNGE90V7) |
 | D39 | Usable from 320px width up with no horizontal scroll; latest two versions of Chrome, Firefox, Safari and Edge | #1 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793399488815919?thread_ts=1793399488.815919&cid=C0CDNGE90V7) |
 | ~~D40~~ | ~~Removing check-ins when a habit is deleted is out of scope here; `id` stays stable for the future tracking requirement~~ → superseded by D53 (#2) | #1 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793399488815919?thread_ts=1793399488.815919&cid=C0CDNGE90V7) |
-| D41 | A habit has a name, optional icon, frequency, start date and optional end date; still no description, target or color | #15 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793451088642969?thread_ts=1793451088.642969&cid=C0CDNGE90V7) |
+| ~~D41~~ | ~~A habit has a name, optional icon, frequency, start date and optional end date; still no description, target or color~~ → superseded by D54 (#33) | #15 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793451088642969?thread_ts=1793451088.642969&cid=C0CDNGE90V7) |
 | D42 | Frequency is required: Daily (preselected) or specific weekdays (one or more of Mon–Sun); no "N times per week", monthly or custom intervals | #15 | same thread |
 | D43 | Start date is required and defaults to today (local date); end date is optional, empty means never ends | #15 | same thread |
 | D44 | New habit: start date today or later, end date on or after start date; errors "Start date can't be in the past." and "End date must be on or after the start date." | #15 | same thread |
 | D45 | Editing: the past-date rule applies only when the start date is changed or set; an unchanged past start date stays valid; a changed end date must be today or later | #15 | same thread |
 | D46 | After the end date passes the habit stays in the list as "Ended" with its end date; not deleted or hidden; nothing else changes | #15 | same thread |
 | D47 | Habits without frequency or dates: no migration; treated as Daily from their `createdAt` date, no end date; not corrupted (D9) | #15 | same thread |
-| D48 | id from crypto.randomUUID() with fallback; key `habits:v1` holds [{id, name, createdAt ISO 8601, icon?, frequency?, startDate?, endDate?}]; `frequency` is {type:"daily"} or {type:"weekdays", days:[0–6]}; `startDate` and `endDate` are local dates "YYYY-MM-DD" with no time or timezone; missing or unknown `icon` = no icon; missing `frequency` or `startDate` = see D47 | #15 | same thread |
-| D49 | Valid JSON with a malformed entry (missing id or name, name over 60, or a present but malformed `frequency`, `startDate` or `endDate`) is treated as corrupted under D9 | #15 | same thread |
+| ~~D48~~ | ~~id from crypto.randomUUID() with fallback; key `habits:v1` holds [{id, name, createdAt ISO 8601, icon?, frequency?, startDate?, endDate?}]; …~~ → superseded by D57 (#33) | #15 | same thread |
+| ~~D49~~ | ~~Valid JSON with a malformed entry (missing id or name, name over 60, or a present but malformed `frequency`, `startDate` or `endDate`) is treated as corrupted under D9~~ → superseded by D58 (#33) | #15 | same thread |
 | D50 | Frequency and date inputs sit in the add form and the inline edit form next to the name: native date inputs and a weekday checkbox group; each row shows a short summary such as "Daily · from 12 Nov" or "Mon, Wed, Fri · 12 Nov – 12 Dec" | #15 | same thread |
 | D51 | New inputs are labelled, errors announced to screen readers, keyboard-operable, usable from 320px with no horizontal scroll | #15 | same thread |
 | D52 | "Today" is the device's local date with no server check; a changed clock can bypass the date rules and that is accepted | #15 | same thread |
 | D53 | Deleting a habit also deletes its check-ins, so no orphaned data remains (check-ins: `habits/daily-check-in`) | #2 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793532079551769?thread_ts=1793532079.551769&cid=C0CDNGE90V7) |
+| D54 | A habit has a name, optional icon, frequency, start date, optional end date, optional cost and optional budget; still no description or color | #33 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793612645519089?thread_ts=1793612645.519089&cid=C0CDNGE90V7) |
+| D55 | Cost is optional and a fixed amount per check-in; budget is optional (amount + period "Weekly" or "Monthly"); one budget per habit, no global budget; amounts are positive, max 2 decimals, max 999999.99; a budget without a cost is not allowed; errors inline | #33 | same thread |
+| D56 | Cost and budget inputs sit in the add form and the inline edit form; they follow D13 and D51 (labelled, announced errors, keyboard, 320px); the summary is in the habit row only (see `habits/habit-budget`) | #33 | same thread |
+| D57 | id from crypto.randomUUID() with fallback; key `habits:v1` holds [{id, name, createdAt ISO 8601, icon?, frequency?, startDate?, endDate?, cost?, budget?}]; `frequency` is {type:"daily"} or {type:"weekdays", days:[0–6]}; `startDate` and `endDate` are local dates "YYYY-MM-DD"; `cost` is a number; `budget` is {amount: number, period: "weekly"\|"monthly"}; missing or unknown `icon` = no icon; missing `frequency` or `startDate` = see D47; missing `cost` or `budget` = none; no migration | #33 | same thread |
+| D58 | Valid JSON with a malformed entry (missing id or name, name over 60, or a present but malformed `frequency`, `startDate`, `endDate`, `cost` or `budget`) is treated as corrupted under D9 | #33 | same thread |
 
 ## Data
-- Entity `Habit`: `id` (string, from crypto.randomUUID() or a fallback), `name` (string, trimmed, 1–60 Unicode characters), `createdAt` (ISO 8601 string), `icon` (optional string, the id of a built-in catalog icon; missing or unknown means no icon), `frequency` (`{type:"daily"}` or `{type:"weekdays", days:[0–6]}`; missing means Daily), `startDate` (local date "YYYY-MM-DD"; missing means the `createdAt` date), `endDate` (optional local date "YYYY-MM-DD"; missing means no end).
+- Entity `Habit`: `id` (string, from crypto.randomUUID() or a fallback), `name` (string, trimmed, 1–60 Unicode characters), `createdAt` (ISO 8601 string), `icon` (optional string, the id of a built-in catalog icon; missing or unknown means no icon), `frequency` (`{type:"daily"}` or `{type:"weekdays", days:[0–6]}`; missing means Daily), `startDate` (local date "YYYY-MM-DD"; missing means the `createdAt` date), `endDate` (optional local date "YYYY-MM-DD"; missing means no end), `cost` (optional number > 0, at most 2 decimals, max 999999.99; amount per check-in), `budget` (optional `{amount, period}`; `amount` as for `cost`, `period` is "weekly" or "monthly"; only present together with `cost`).
 - localStorage key `habits:v1` holds an array of Habit in creation order.
 
 ## Not covered
-- Habit fields other than name, icon, frequency, start date and end date.
+- Habit fields other than name, icon, frequency, start date, end date, cost and budget.
 - Frequencies such as "N times per week", monthly or custom intervals.
 - Uploaded, custom or network-loaded icons.
 - Marking done today is in `habits/daily-check-in`; history views, streaks and reminders are not covered.
+- Spend calculation and display are in `habits/habit-budget`; currency, global budget and cost history are not covered.
 - Hiding, archiving or deleting habits automatically when they end.
 - Server-side date checks or protection against a changed device clock.
 - Reordering and undo of deletion.
@@ -120,3 +127,4 @@ updated: 2026-11-01
 - 2026-10-30 #1: Added an optional catalog icon (D26–D31; D1 and D21 superseded), a visible "Add" button, and edge-case, data and UX rules (D32–D40).
 - 2026-10-31 #15: Added frequency (daily or weekdays), start date and optional end date with date rules, "Ended" display and legacy handling (D41–D52; D26, D30 and D36 superseded).
 - 2026-11-01 #2: Deleting a habit now also deletes its check-ins (D53; D40 superseded); the schedule is now used by daily check-in.
+- 2026-11-02 #33: Added optional cost and budget fields with validation, storage and corruption rules (D54–D58; D41, D48 and D49 superseded); budget display is in `habits/habit-budget`.
