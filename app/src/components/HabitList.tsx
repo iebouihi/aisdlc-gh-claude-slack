@@ -22,6 +22,17 @@ import {
 import { awardBadges, newBadgeIds, parseBadges, type Badge, type EarnedBadge } from "@/lib/badges";
 import { latestBadge, parseProfile, welcomeText } from "@/lib/profile";
 import { iconEmoji } from "@/lib/icons";
+import {
+  budgetStatus,
+  draftFromMoney,
+  emptyMoneyDraft,
+  hasMoneyErrors,
+  overText,
+  spentText,
+  validateMoney,
+  type MoneyDraft,
+  type MoneyErrors,
+} from "@/lib/budget";
 import { currentStreak, streakText } from "@/lib/streak";
 import {
   formatDate,
@@ -42,6 +53,7 @@ import {
 } from "@/lib/storage";
 import { AppNav, type View } from "./AppNav";
 import { Badges } from "./Badges";
+import { BudgetFields } from "./BudgetFields";
 import { DeleteDialog } from "./DeleteDialog";
 import { IconPicker } from "./IconPicker";
 import { ProfileName } from "./ProfileName";
@@ -73,6 +85,8 @@ type Editing = {
   error: string | null;
   schedule: ScheduleDraft;
   scheduleErrors: ScheduleErrors;
+  money: MoneyDraft;
+  moneyErrors: MoneyErrors;
 };
 
 /** The add form starts as Daily from today, with no end date. */
@@ -88,6 +102,30 @@ function StreakLine({ streak, ended }: { streak: number; ended: boolean }) {
       {streak > 0 && <span className={styles.visuallyHidden}>Run: </span>}
       <span>{streakText(streak)}</span>
       {ended && <span className={styles.ended}>Ended</span>}
+    </p>
+  );
+}
+
+/** Spent of budget for the current period; over budget adds an icon and text, never colour alone. */
+function BudgetLine({
+  habit,
+  checkins,
+  today,
+}: {
+  habit: Habit;
+  checkins: CheckIn[];
+  today: string;
+}) {
+  const status = budgetStatus(habit, checkins, today);
+  if (!status) return null;
+  return (
+    <p className={styles.budget}>
+      <span>{spentText(status)}</span>
+      {status.over > 0 && (
+        <span className={styles.over}>
+          <span aria-hidden="true">⚠️</span> {overText(status)}
+        </span>
+      )}
     </p>
   );
 }
@@ -122,6 +160,8 @@ export function HabitList() {
     endDate: "",
   });
   const [addScheduleErrors, setAddScheduleErrors] = useState<ScheduleErrors>({});
+  const [addMoney, setAddMoney] = useState<MoneyDraft>(emptyMoneyDraft());
+  const [addMoneyErrors, setAddMoneyErrors] = useState<MoneyErrors>({});
 
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -249,11 +289,14 @@ export function HabitList() {
     const scheduleErrors = validateSchedule(schedule, toLocalDate(new Date()));
     setAddError(error);
     setAddScheduleErrors(scheduleErrors);
-    if (error || hasErrors(scheduleErrors)) return;
-    persist(addHabit(habits, addName, addIcon, new Date(), schedule));
+    const { errors: moneyErrors, money } = validateMoney(addMoney);
+    setAddMoneyErrors(moneyErrors);
+    if (error || hasErrors(scheduleErrors) || hasMoneyErrors(moneyErrors)) return;
+    persist(addHabit(habits, addName, addIcon, new Date(), schedule, money));
     setAddName("");
     setAddIcon(undefined);
     setAddSchedule(newDraft());
+    setAddMoney(emptyMoneyDraft());
     addInputRef.current?.focus();
   }
 
@@ -265,6 +308,8 @@ export function HabitList() {
       error: null,
       schedule: draftFromSchedule(habit),
       scheduleErrors: {},
+      money: draftFromMoney(habit),
+      moneyErrors: {},
     });
     pendingFocus.current = `[data-focus="edit-input"]`;
   }
@@ -281,11 +326,12 @@ export function HabitList() {
     const schedule = scheduleFromDraft(editing.schedule);
     const original = habits.find((h) => h.id === editing.id);
     const scheduleErrors = validateSchedule(schedule, toLocalDate(new Date()), original);
-    if (error || hasErrors(scheduleErrors)) {
-      setEditing({ ...editing, error, scheduleErrors });
+    const { errors: moneyErrors, money } = validateMoney(editing.money);
+    if (error || hasErrors(scheduleErrors) || hasMoneyErrors(moneyErrors)) {
+      setEditing({ ...editing, error, scheduleErrors, moneyErrors });
       return;
     }
-    persist(updateHabit(habits, editing.id, editing.name, editing.icon, schedule));
+    persist(updateHabit(habits, editing.id, editing.name, editing.icon, schedule, money));
     pendingFocus.current = `[data-focus="edit-${editing.id}"]`;
     setEditing(null);
   }
@@ -351,6 +397,15 @@ export function HabitList() {
             onChange={(draft) => {
               setAddSchedule(draft);
               setAddScheduleErrors({});
+            }}
+          />
+          <BudgetFields
+            idPrefix="add"
+            draft={addMoney}
+            errors={addMoneyErrors}
+            onChange={(draft) => {
+              setAddMoney(draft);
+              setAddMoneyErrors({});
             }}
           />
           {addError && (
@@ -491,6 +546,12 @@ export function HabitList() {
                         setEditing({ ...editing, schedule, scheduleErrors: {} })
                       }
                     />
+                    <BudgetFields
+                      idPrefix="edit"
+                      draft={editing.money}
+                      errors={editing.moneyErrors}
+                      onChange={(money) => setEditing({ ...editing, money, moneyErrors: {} })}
+                    />
                     {editing.error && (
                       <p id="edit-error" role="alert" className={styles.error}>
                         {editing.error}
@@ -551,6 +612,9 @@ export function HabitList() {
                           <span className={styles.ended}>Ended {formatDate(habit.endDate!)}</span>
                         )}
                       </p>
+                    )}
+                    {view === "habits" && (
+                      <BudgetLine habit={habit} checkins={checkins} today={today} />
                     )}
                     {view === "today" && !checkinError && today && (
                       <StreakLine

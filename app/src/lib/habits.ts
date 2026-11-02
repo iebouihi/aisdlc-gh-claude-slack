@@ -1,4 +1,5 @@
 /** Habit domain logic: validation, parsing stored data and list updates. Pure, no React. */
+import { isAmount, parseBudget, type Budget, type Money } from "./budget";
 import { findIcon } from "./icons";
 import {
   isLocalDate,
@@ -18,6 +19,10 @@ export type Habit = {
   startDate: string;
   /** Local date "YYYY-MM-DD"; missing means the habit never ends. */
   endDate?: string;
+  /** Fixed amount spent each time the habit is done. */
+  cost?: number;
+  /** Spending limit per week or month; shown only together with a cost. */
+  budget?: Budget;
 };
 
 const DAILY: Frequency = { type: "daily" };
@@ -71,10 +76,8 @@ export function parseHabits(value: unknown): Habit[] | null {
   const habits: Habit[] = [];
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) return null;
-    const { id, name, createdAt, icon, frequency, startDate, endDate } = entry as Record<
-      string,
-      unknown
-    >;
+    const { id, name, createdAt, icon, frequency, startDate, endDate, cost, budget } =
+      entry as Record<string, unknown>;
     if (typeof id !== "string" || id === "") return null;
     if (typeof name !== "string" || name.trim() === "") return null;
     if (nameLength(name.trim()) > MAX_NAME_LENGTH) return null;
@@ -83,6 +86,9 @@ export function parseHabits(value: unknown): Habit[] | null {
     if (parsedFrequency === null) return null;
     if (startDate !== undefined && !isLocalDate(startDate)) return null;
     if (endDate !== undefined && !isLocalDate(endDate)) return null;
+    if (cost !== undefined && !isAmount(cost)) return null;
+    const parsedBudget = budget === undefined ? undefined : parseBudget(budget);
+    if (parsedBudget === null) return null;
     const createdDate = new Date(created);
     const habit: Habit = {
       id,
@@ -93,10 +99,19 @@ export function parseHabits(value: unknown): Habit[] | null {
         startDate ?? toLocalDate(Number.isNaN(createdDate.getTime()) ? new Date(0) : createdDate),
     };
     if (endDate !== undefined) habit.endDate = endDate;
+    if (cost !== undefined) habit.cost = cost;
+    if (parsedBudget) habit.budget = parsedBudget;
     if (typeof icon === "string" && findIcon(icon)) habit.icon = icon;
     habits.push(habit);
   }
   return habits;
+}
+
+function applyMoney(habit: Habit, money: Money): void {
+  delete habit.cost;
+  delete habit.budget;
+  if (money.cost !== undefined) habit.cost = money.cost;
+  if (money.budget) habit.budget = money.budget;
 }
 
 function applySchedule(habit: Habit, schedule: Schedule): Habit {
@@ -113,12 +128,14 @@ export function addHabit(
   icon: string | undefined,
   now: Date = new Date(),
   schedule: Schedule = { frequency: DAILY, startDate: toLocalDate(now) },
+  money: Money = {},
 ): Habit[] {
   const habit = applySchedule(
     { id: createId(), name: name.trim(), createdAt: now.toISOString() } as Habit,
     schedule,
   );
   if (icon) habit.icon = icon;
+  applyMoney(habit, money);
   return [...habits, habit];
 }
 
@@ -129,12 +146,14 @@ export function updateHabit(
   name: string,
   icon: string | undefined,
   schedule?: Schedule,
+  money?: Money,
 ): Habit[] {
   return habits.map((h) => {
     if (h.id !== id) return h;
     const updated: Habit = { ...h, name: name.trim() };
     delete updated.icon;
     if (icon) updated.icon = icon;
+    if (money) applyMoney(updated, money);
     return schedule ? applySchedule(updated, schedule) : updated;
   });
 }
