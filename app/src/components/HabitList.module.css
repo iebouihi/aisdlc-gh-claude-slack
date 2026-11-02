@@ -185,6 +185,19 @@
   font-size: 0.875rem;
 }
 
+.budget {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.over {
+  font-weight: 600;
+}
+
 .ended {
   margin-left: 8px;
   padding: 0 6px;
