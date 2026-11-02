@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { HabitList } from "./HabitList";
 
-export type ViewName = "Today" | "Week" | "Habits";
+export type ViewName = "Today" | "Week" | "Progress" | "Habits";
 
 /** Switch the in-page view through the nav (the same click a person makes). */
 export function goTo(view: ViewName) {
