@@ -164,12 +164,13 @@ describe("HabitList profile", () => {
     expect(screen.getByRole("button", { name: "Add name" })).toBeInTheDocument();
   });
 
-  it("AC15 (#30): the nav still shows exactly Today, Week and Habits", () => {
+  it("AC15 (#30): the nav still shows exactly Today, Week, Progress and Habits", () => {
     render(<HabitList />);
     const nav = screen.getByRole("navigation");
     expect(Array.from(nav.querySelectorAll("button")).map((b) => b.textContent)).toEqual([
       "Today",
       "Week",
+      "Progress",
       "Habits",
     ]);
   });

@@ -63,6 +63,7 @@ import {
   scheduleFromDraft,
   type ScheduleDraft,
 } from "./ScheduleFields";
+import { ProgressView } from "./ProgressView";
 import { WeekView } from "./WeekView";
 import styles from "./HabitList.module.css";
 
@@ -452,7 +453,7 @@ export function HabitList() {
         </p>
       )}
 
-      {loaded && habits.length === 0 && view !== "week" && (
+      {loaded && habits.length === 0 && view !== "week" && view !== "progress" && (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>No habits yet</p>
           <button
@@ -478,7 +479,7 @@ export function HabitList() {
         </p>
       )}
 
-      {loaded && view !== "week" && habits.length > 0 && (
+      {loaded && view !== "week" && view !== "progress" && habits.length > 0 && (
         <ul className={styles.list}>
           {habits.map((habit) => {
             const isEditing = view === "habits" && editing?.id === habit.id;
@@ -636,6 +637,15 @@ export function HabitList() {
             Week
           </h2>
           <WeekView habits={habits} checkins={checkins} today={today} />
+        </section>
+      )}
+
+      {loaded && view === "progress" && (
+        <section aria-labelledby="progress-heading" className={styles.weekSection}>
+          <h2 id="progress-heading" className={styles.weekHeading}>
+            Progress
+          </h2>
+          <ProgressView habits={habits} checkins={checkins} today={today} />
         </section>
       )}
 

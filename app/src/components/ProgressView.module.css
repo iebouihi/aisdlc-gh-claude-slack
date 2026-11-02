@@ -1,0 +1,137 @@
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+}
+
+.period {
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.period[aria-pressed="true"] {
+  font-weight: 700;
+  border-width: 2px;
+  background: var(--surface);
+  text-decoration: underline;
+}
+
+.subheading {
+  font-size: var(--text-md);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.figure {
+  font-weight: 600;
+  margin: var(--space-2) 0;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.expectedBar {
+  fill: url(#expected-pattern);
+  stroke: var(--fg);
+  stroke-width: 0.5;
+}
+
+.doneBar {
+  fill: var(--accent);
+}
+
+.patternLine {
+  stroke: var(--fg);
+  stroke-width: 1;
+}
+
+.axis {
+  stroke: var(--border-strong);
+  stroke-width: 0.5;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: var(--space-1);
+  vertical-align: middle;
+  border: 1px solid var(--fg);
+}
+
+.swatchDone {
+  background: var(--accent);
+}
+
+.swatchExpected {
+  background: repeating-linear-gradient(45deg, var(--fg) 0 1px, var(--bg) 1px 4px);
+}
+
+.habits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.habit {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.habitName {
+  font-weight: 600;
+}
+
+.track {
+  height: 12px;
+  margin: var(--space-1) 0;
+  border: 1px solid var(--fg);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.note {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.empty {
+  margin: var(--space-6) 0;
+  font-weight: 600;
+}

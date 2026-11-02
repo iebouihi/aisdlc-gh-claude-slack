@@ -24,11 +24,11 @@ describe("app navigation (#27)", () => {
     localStorage.clear();
   });
 
-  it("AC1 (#27): the nav shows exactly three items: Today, Week and Habits", () => {
+  it("AC1 (#27): the nav shows four items: Today, Week, Progress and Habits", () => {
     render(<HabitList />);
     const nav = screen.getByRole("navigation", { name: "Views" });
     const items = within(nav).getAllByRole("button");
-    expect(items.map((i) => i.textContent)).toEqual(["Today", "Week", "Habits"]);
+    expect(items.map((i) => i.textContent)).toEqual(["Today", "Week", "Progress", "Habits"]);
   });
 
   it("AC2 (#27): selecting an item shows that view, with no URL change", async () => {
@@ -70,6 +70,8 @@ describe("app navigation (#27)", () => {
     expect(screen.getByRole("button", { name: "Week" })).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(screen.getByRole("region", { name: "Week" })).toBeInTheDocument();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Progress" })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: "Habits" })).toHaveFocus();
     await user.keyboard(" ");

@@ -189,7 +189,7 @@ describe("HabitList budget", () => {
     seed([habit()], [checkin(first)]);
     renderView("Habits");
     await startEdit(user);
-    fireEvent.change(editField("Budget period"),{ target: { value: "monthly" } });
+    fireEvent.change(editField("Budget period"), { target: { value: "monthly" } });
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(stored()[0].budget.period).toBe("monthly");
     expect(
