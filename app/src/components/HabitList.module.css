@@ -98,6 +98,48 @@
   border-radius: var(--radius);
 }
 
+/* Reminder banner: icon + text + border, never colour alone; wraps so 320px never scrolls. */
+.reminder {
+  margin: 16px 0;
+  padding: 12px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.reminderTitle {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.reminderList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.reminderItem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reminderName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.reminder button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .empty {
   display: flex;
   flex-direction: column;

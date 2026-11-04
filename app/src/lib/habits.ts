@@ -3,6 +3,7 @@ import { isAmount, parseBudget, type Budget, type Money } from "./budget";
 import { findIcon } from "./icons";
 import {
   isLocalDate,
+  isReminderTime,
   parseFrequency,
   toLocalDate,
   type Frequency,
@@ -23,6 +24,8 @@ export type Habit = {
   cost?: number;
   /** Spending limit per week or month; shown only together with a cost. */
   budget?: Budget;
+  /** Local time "HH:mm" of the in-page reminder; missing means no reminder. */
+  reminderTime?: string;
 };
 
 const DAILY: Frequency = { type: "daily" };
@@ -67,7 +70,7 @@ export function createId(): string {
 /**
  * Turn a stored value into habits. Returns null when the value is corrupted (not an array, or an
  * entry has no id or name, a name over 60 characters, or a present but malformed frequency,
- * startDate or endDate). A missing icon, frequency or startDate is not an error: a legacy habit
+ * startDate, endDate or reminderTime). A missing icon, frequency or startDate is not an error: a legacy habit
  * becomes Daily from its createdAt (local) date.
  */
 export function parseHabits(value: unknown): Habit[] | null {
@@ -76,7 +79,7 @@ export function parseHabits(value: unknown): Habit[] | null {
   const habits: Habit[] = [];
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) return null;
-    const { id, name, createdAt, icon, frequency, startDate, endDate, cost, budget } =
+    const { id, name, createdAt, icon, frequency, startDate, endDate, cost, budget, reminderTime } =
       entry as Record<string, unknown>;
     if (typeof id !== "string" || id === "") return null;
     if (typeof name !== "string" || name.trim() === "") return null;
@@ -86,6 +89,7 @@ export function parseHabits(value: unknown): Habit[] | null {
     if (parsedFrequency === null) return null;
     if (startDate !== undefined && !isLocalDate(startDate)) return null;
     if (endDate !== undefined && !isLocalDate(endDate)) return null;
+    if (reminderTime !== undefined && !isReminderTime(reminderTime)) return null;
     if (cost !== undefined && !isAmount(cost)) return null;
     const parsedBudget = budget === undefined ? undefined : parseBudget(budget);
     if (parsedBudget === null) return null;
@@ -99,6 +103,7 @@ export function parseHabits(value: unknown): Habit[] | null {
         startDate ?? toLocalDate(Number.isNaN(createdDate.getTime()) ? new Date(0) : createdDate),
     };
     if (endDate !== undefined) habit.endDate = endDate;
+    if (reminderTime !== undefined) habit.reminderTime = reminderTime;
     if (cost !== undefined) habit.cost = cost;
     if (parsedBudget) habit.budget = parsedBudget;
     if (typeof icon === "string" && findIcon(icon)) habit.icon = icon;
@@ -117,7 +122,9 @@ function applyMoney(habit: Habit, money: Money): void {
 function applySchedule(habit: Habit, schedule: Schedule): Habit {
   const next: Habit = { ...habit, frequency: schedule.frequency, startDate: schedule.startDate };
   delete next.endDate;
+  delete next.reminderTime;
   if (schedule.endDate) next.endDate = schedule.endDate;
+  if (schedule.reminderTime) next.reminderTime = schedule.reminderTime;
   return next;
 }
 
