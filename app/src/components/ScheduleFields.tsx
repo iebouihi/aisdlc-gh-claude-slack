@@ -7,6 +7,8 @@ export type ScheduleDraft = {
   days: number[];
   startDate: string;
   endDate: string;
+  /** "HH:mm" or "" for no reminder. */
+  reminderTime: string;
 };
 
 export function draftFromSchedule(schedule: Schedule): ScheduleDraft {
@@ -15,6 +17,7 @@ export function draftFromSchedule(schedule: Schedule): ScheduleDraft {
     days: schedule.frequency.type === "weekdays" ? schedule.frequency.days : [],
     startDate: schedule.startDate,
     endDate: schedule.endDate ?? "",
+    reminderTime: schedule.reminderTime ?? "",
   };
 }
 
@@ -25,6 +28,7 @@ export function scheduleFromDraft(draft: ScheduleDraft): Schedule {
       : { type: "weekdays", days: [...draft.days].sort((a, b) => a - b) };
   const schedule: Schedule = { frequency, startDate: draft.startDate };
   if (draft.endDate) schedule.endDate = draft.endDate;
+  if (draft.reminderTime) schedule.reminderTime = draft.reminderTime;
   return schedule;
 }
 
@@ -117,6 +121,15 @@ export function ScheduleFields({ idPrefix, draft, errors, onChange }: Props) {
             aria-invalid={errors.end ? true : undefined}
             aria-describedby={errors.end ? endErrorId : undefined}
             onChange={(e) => onChange({ ...draft, endDate: e.target.value })}
+          />
+        </label>
+        <label className={styles.dateField}>
+          Reminder time (optional)
+          <input
+            type="time"
+            className={styles.input}
+            value={draft.reminderTime}
+            onChange={(e) => onChange({ ...draft, reminderTime: e.target.value })}
           />
         </label>
       </div>

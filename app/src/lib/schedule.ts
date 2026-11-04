@@ -2,7 +2,13 @@
 
 export type Frequency = { type: "daily" } | { type: "weekdays"; days: number[] };
 
-export type Schedule = { frequency: Frequency; startDate: string; endDate?: string };
+export type Schedule = {
+  frequency: Frequency;
+  startDate: string;
+  endDate?: string;
+  /** Local time "HH:mm"; missing means no reminder. */
+  reminderTime?: string;
+};
 
 /** Weekday numbers follow `Date.getDay` (0 = Sunday). Listed Monday first for display. */
 export const WEEKDAYS: readonly { day: number; short: string; long: string }[] = [
@@ -39,6 +45,11 @@ export function isLocalDate(value: unknown): value is string {
   const [y, m, d] = value.split("-").map(Number);
   const date = new Date(y, m - 1, d);
   return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
+/** True for a 24-hour local time written as "HH:mm". */
+export function isReminderTime(value: unknown): value is string {
+  return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
 /** Parse a stored frequency. Returns null when malformed. */
@@ -89,7 +100,7 @@ export function formatDate(date: string): string {
 
 /** "Daily · from 12 Nov" or "Mon, Wed, Fri · 12 Nov – 12 Dec". */
 export function summarize(schedule: Schedule): string {
-  const { frequency, startDate, endDate } = schedule;
+  const { frequency, startDate, endDate, reminderTime } = schedule;
   const freq =
     frequency.type === "daily"
       ? "Daily"
@@ -99,7 +110,8 @@ export function summarize(schedule: Schedule): string {
   const dates = endDate
     ? `${formatDate(startDate)} – ${formatDate(endDate)}`
     : `from ${formatDate(startDate)}`;
-  return `${freq} · ${dates}`;
+  const reminder = reminderTime ? ` · reminder ${reminderTime}` : "";
+  return `${freq} · ${dates}${reminder}`;
 }
 
 /** The habit has an end date before today's local date. */

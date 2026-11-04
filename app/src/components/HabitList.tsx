@@ -34,6 +34,7 @@ import {
   type MoneyErrors,
 } from "@/lib/budget";
 import { currentStreak, streakText } from "@/lib/streak";
+import { dismissalKey, dueReminders, toLocalTime } from "@/lib/reminders";
 import {
   formatDate,
   hasEnded,
@@ -92,7 +93,13 @@ type Editing = {
 
 /** The add form starts as Daily from today, with no end date. */
 function newDraft(): ScheduleDraft {
-  return { type: "daily", days: [], startDate: toLocalDate(new Date()), endDate: "" };
+  return {
+    type: "daily",
+    days: [],
+    startDate: toLocalDate(new Date()),
+    endDate: "",
+    reminderTime: "",
+  };
 }
 
 /** A row's current streak: icon + text, never colour alone; "Ended" for a finished habit. */
@@ -147,6 +154,10 @@ export function HabitList() {
   const [newIds, setNewIds] = useState<string[]>([]);
   // Local date of "today"; empty until mounted so the static build never bakes in a date.
   const [today, setToday] = useState("");
+  // Local time "HH:mm", empty until mounted; ticks while the app is open (reminders).
+  const [time, setTime] = useState("");
+  // Reminders dismissed today (`date|habitId`); in memory only, so a reload resets them.
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   // Which view is shown; in-page state only (no route, nothing stored). Starts on Today.
   const [view, setView] = useState<View>("today");
 
@@ -159,6 +170,7 @@ export function HabitList() {
     days: [],
     startDate: "",
     endDate: "",
+    reminderTime: "",
   });
   const [addScheduleErrors, setAddScheduleErrors] = useState<ScheduleErrors>({});
   const [addMoney, setAddMoney] = useState<MoneyDraft>(emptyMoneyDraft());
@@ -204,6 +216,7 @@ export function HabitList() {
     if (parsedProfile === null) setProfileError(true);
     else setProfileName(parsedProfile);
     setToday(now);
+    setTime(toLocalTime(new Date()));
     setAddSchedule(newDraft());
     setLoaded(true);
   }, []);
@@ -211,14 +224,20 @@ export function HabitList() {
   // The date can change while the app stays open: refresh on focus and on any interaction (D5).
   useEffect(() => {
     function refresh() {
-      const now = toLocalDate(new Date());
+      const date = new Date();
+      const now = toLocalDate(date);
       setToday((current) => (current === now ? current : now));
+      const clock = toLocalTime(date);
+      setTime((current) => (current === clock ? current : clock));
     }
+    // Reminders: check the clock while the app is open (D3, D14).
+    const timer = window.setInterval(refresh, 10_000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     document.addEventListener("pointerdown", refresh, true);
     document.addEventListener("keydown", refresh, true);
     return () => {
+      window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
       document.removeEventListener("pointerdown", refresh, true);
@@ -359,6 +378,17 @@ export function HabitList() {
     setDeleteId(null);
   }
 
+  const due = dueReminders(habits, checkins, today, time, dismissed);
+
+  /** Dismiss hides only the habits listed now; no snooze (D8). */
+  function dismissReminders() {
+    setDismissed((current) => {
+      const next = new Set(current);
+      for (const h of due) next.add(dismissalKey(h.id, today));
+      return next;
+    });
+  }
+
   const summary = todaySummary(habits, checkins, today);
   const habitToDelete = habits.find((h) => h.id === deleteId);
 
@@ -469,6 +499,32 @@ export function HabitList() {
             }}
           >
             Add your first habit
+          </button>
+        </div>
+      )}
+
+      {loaded && view === "today" && due.length > 0 && (
+        <div role="status" className={styles.reminder}>
+          <p className={styles.reminderTitle}>
+            <span aria-hidden="true">⏰</span> Time to check your habits
+          </p>
+          <ul className={styles.reminderList}>
+            {due.map((h) => (
+              <li key={h.id} className={styles.reminderItem}>
+                <span className={styles.reminderName}>{h.name}</span>
+                <button
+                  type="button"
+                  className={styles.button}
+                  aria-label={`Mark done: ${h.name}`}
+                  onClick={() => toggle(h.id)}
+                >
+                  Mark done
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className={styles.button} onClick={dismissReminders}>
+            Dismiss
           </button>
         </div>
       )}
