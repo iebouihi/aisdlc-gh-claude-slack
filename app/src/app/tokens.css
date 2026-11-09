@@ -26,6 +26,10 @@
   --space-6: 24px;
   --space-8: 32px;
 
+  /* Form controls: one size for every input, one gap between fields */
+  --control-height: 40px;
+  --field-gap: var(--space-3);
+
   /* Shape */
   --radius: 8px;
 

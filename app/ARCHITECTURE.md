@@ -1,6 +1,6 @@
 ---
 updated: 2026-11-09
-issues: [1, 2, 3, 4, 7, 12, 15, 24, 27, 30, 33, 36, 39, 43]
+issues: [1, 2, 3, 4, 7, 12, 15, 24, 27, 30, 33, 36, 39, 43, 47]
 ---
 
 # good-habit-tracker: code map
@@ -86,6 +86,7 @@ _What_ the product does lives in `specs/`; this file says _where_ and _how_ it i
 - **The overall chart type (Bars | Line) is session state in `HabitList`** (`chartType`, default `bars`, passed to `ProgressView`), so it survives period and view switches but is never stored and resets on load. The line chart (`LineChart` in `ProgressView.tsx`) is plain SVG over the same `perDay` totals as the bars: "done" solid line with circles, "expected" dashed line with squares, a 0/0 day plotted on the axis, same data table (today row adds "not done yet"). Per-habit charts ignore the choice. Colours only from tokens (`.doneLine`, `.expectedLine`, …).
 - **Reminders are computed, never stored:** `dueReminders(habits, checkins, today, time, dismissed)` = habits with a `reminderTime` ≤ the local "HH:mm" that are `checkable` today, not done and not dismissed today. `HabitList` keeps `time` in state (empty until mounted), refreshed by a 10 s interval plus the same focus/visibility/interaction refresh as `today`. Dismissals are an in-memory `Set` of `date|habitId` (reset on reload; a new date makes old keys irrelevant). The banner is `role="status"` with icon + text, no Notification API. A malformed `reminderTime` is corrupted in `parseHabits`; a missing one means no reminder.
 - **Colours and spacing come from tokens:** CSS Modules use `var(--…)` from `tokens.css`; no hex or `rgb()` literals in any stylesheet (enforced by a test).
+- **Form controls share one size** (#47): `--control-height` (40px) and `--field-gap` tokens; every input/select uses `.input` in `HabitList.module.css`. Layout: `.group` (name + icon), `.schedule` (frequency, `.dates` grid = 2 columns from 480px, then time in a `.fieldRow`), and a second `.schedule` for cost and budget (`.fieldRow` per row, wrapping). The add and edit forms render the same field components. Checked by `HabitForm.layout.test.tsx` (reads the CSS, since jsdom has no layout).
 - **Modals are hand-written** (`DeleteDialog`: focus trap, Escape), not native `<dialog>`.
 - Client components start with `"use client"` only where they need state or effects.
 - Runtime dependencies are only `next`, `react`, `react-dom` (enforced by a test).

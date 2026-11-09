@@ -123,6 +123,8 @@ export function ScheduleFields({ idPrefix, draft, errors, onChange }: Props) {
             onChange={(e) => onChange({ ...draft, endDate: e.target.value })}
           />
         </label>
+      </div>
+      <div className={styles.fieldRow}>
         <label className={styles.dateField}>
           Reminder time (optional)
           <input
