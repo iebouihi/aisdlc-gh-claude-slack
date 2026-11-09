@@ -1,8 +1,44 @@
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-4) 0;
+}
+
 .periods {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin: var(--space-4) 0;
+}
+
+.doneLine {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.expectedLine {
+  stroke: var(--fg);
+  stroke-width: 1;
+  stroke-dasharray: 4 2;
+}
+
+.doneMarker {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 0.5;
+}
+
+.expectedMarker {
+  fill: var(--bg);
+  stroke: var(--fg);
+  stroke-width: 0.8;
+}
+
+.legendMark {
+  width: 24px;
+  height: 10px;
+  margin-right: var(--space-1);
+  vertical-align: middle;
 }
 
 .period {

@@ -64,6 +64,7 @@ import {
   scheduleFromDraft,
   type ScheduleDraft,
 } from "./ScheduleFields";
+import { DEFAULT_CHART_TYPE, type ChartType } from "@/lib/progress";
 import { ProgressView } from "./ProgressView";
 import { WeekView } from "./WeekView";
 import styles from "./HabitList.module.css";
@@ -160,6 +161,8 @@ export function HabitList() {
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   // Which view is shown; in-page state only (no route, nothing stored). Starts on Today.
   const [view, setView] = useState<View>("today");
+  // Overall progress chart type: session only, never stored (resets to Bars on load).
+  const [chartType, setChartType] = useState<ChartType>(DEFAULT_CHART_TYPE);
 
   const [addName, setAddName] = useState("");
   const [addIcon, setAddIcon] = useState<string | undefined>();
@@ -701,7 +704,13 @@ export function HabitList() {
           <h2 id="progress-heading" className={styles.weekHeading}>
             Progress
           </h2>
-          <ProgressView habits={habits} checkins={checkins} today={today} />
+          <ProgressView
+            habits={habits}
+            checkins={checkins}
+            today={today}
+            chartType={chartType}
+            onChartTypeChange={setChartType}
+          />
         </section>
       )}
 

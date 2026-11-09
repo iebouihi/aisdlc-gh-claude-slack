@@ -8,6 +8,12 @@ export const PERIODS: { days: Period; label: string }[] = [
   { days: 30, label: "Last 30 days" },
 ];
 export const DEFAULT_PERIOD: Period = 7;
+export type ChartType = "bars" | "line";
+export const CHART_TYPES: { type: ChartType; label: string }[] = [
+  { type: "bars", label: "Bars" },
+  { type: "line", label: "Line" },
+];
+export const DEFAULT_CHART_TYPE: ChartType = "bars";
 export const NO_SCHEDULED_DAYS_TEXT = "No scheduled days";
 
 export type ProgressDay = { date: string; label: string; isToday: boolean };
