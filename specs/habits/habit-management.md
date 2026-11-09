@@ -5,8 +5,8 @@ module: habits
 summary: Create, list, edit and delete habits with a name, optional catalog icon, frequency, start/end dates and optional cost and budget; stored only in the browser's localStorage.
 entities: [Habit]
 status: active
-issues: [1, 15, 2, 33]
-updated: 2026-11-02
+issues: [1, 15, 2, 33, 47]
+updated: 2026-11-09
 ---
 # Habit management
 
@@ -22,6 +22,7 @@ updated: 2026-11-02
 - "Today" is the device's local date, with no server check. A changed device clock can bypass the rules.
 - Cost is optional: a fixed amount per check-in. Budget is optional: an amount plus a period, "Weekly" or "Monthly". Amounts are positive numbers with at most 2 decimals, up to 999999.99, with inline errors. A budget without a cost is not allowed. Spend and the budget summary are described in `habits/habit-budget`.
 - The frequency, date, cost and budget inputs are in the add form and the inline edit form, next to the name: native date inputs, a weekday checkbox group and amount inputs. They are labelled, errors are announced, and they are keyboard-operable and usable from 320px.
+- The add form and the inline edit form share one compact layout. Text, date and amount inputs have the same height (about 40px), font size, border and radius, from the design tokens. Fields are in short groups (name + icon, schedule, cost and budget), with labels above the inputs and the same gap between fields. Start and end dates sit side by side from about 480px width and are stacked below. Cost is on one row; budget amount and period are on one row that wraps on narrow screens. Controls are at least 40px high. Small native date-input differences between browsers are accepted.
 - Each row shows a short schedule summary, e.g. "Daily · from 12 Nov" or "Mon, Wed, Fri · 12 Nov – 12 Dec", and, when the habit has a budget, the budget summary from `habits/habit-budget`.
 - When the end date has passed, the habit stays in the list, shown as "Ended" with its end date. It is not deleted or hidden. The schedule is used by `habits/daily-check-in` to decide whether a habit can be checked today.
 - A habit stored without frequency or dates is treated as Daily, starting on its `createdAt` date, with no end date. A habit stored without cost or budget simply has none. There is no migration and it is not corrupted.
@@ -103,6 +104,7 @@ updated: 2026-11-02
 | D56 | Cost and budget inputs sit in the add form and the inline edit form; they follow D13 and D51 (labelled, announced errors, keyboard, 320px); the summary is in the habit row only (see `habits/habit-budget`) | #33 | same thread |
 | D57 | id from crypto.randomUUID() with fallback; key `habits:v1` holds [{id, name, createdAt ISO 8601, icon?, frequency?, startDate?, endDate?, cost?, budget?}]; `frequency` is {type:"daily"} or {type:"weekdays", days:[0–6]}; `startDate` and `endDate` are local dates "YYYY-MM-DD"; `cost` is a number; `budget` is {amount: number, period: "weekly"\|"monthly"}; missing or unknown `icon` = no icon; missing `frequency` or `startDate` = see D47; missing `cost` or `budget` = none; no migration | #33 | same thread |
 | D58 | Valid JSON with a malformed entry (missing id or name, name over 60, or a present but malformed `frequency`, `startDate`, `endDate`, `cost` or `budget`) is treated as corrupted under D9 | #33 | same thread |
+| D59 | The add form and the inline edit form share one compact layout, visual only (rules, messages and data unchanged): equal-size inputs (about 40px high), short groups with labels above, start and end dates side by side from about 480px and stacked below, cost and budget (amount + period) on compact rows, controls at least 40px high; native date inputs kept; small native browser differences accepted | #47 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1794261755875149?thread_ts=1794261755.875149&cid=C0CDNGE90V7) |
 
 ## Data
 - Entity `Habit`: `id` (string, from crypto.randomUUID() or a fallback), `name` (string, trimmed, 1–60 Unicode characters), `createdAt` (ISO 8601 string), `icon` (optional string, the id of a built-in catalog icon; missing or unknown means no icon), `frequency` (`{type:"daily"}` or `{type:"weekdays", days:[0–6]}`; missing means Daily), `startDate` (local date "YYYY-MM-DD"; missing means the `createdAt` date), `endDate` (optional local date "YYYY-MM-DD"; missing means no end), `cost` (optional number > 0, at most 2 decimals, max 999999.99; amount per check-in), `budget` (optional `{amount, period}`; `amount` as for `cost`, `period` is "weekly" or "monthly"; only present together with `cost`).
@@ -121,6 +123,7 @@ updated: 2026-11-02
 - Export and import.
 - Cross-tab syncing or merging.
 - Normalising inner whitespace in names.
+- A custom date picker (native date inputs are kept) or pixel-identical rendering across browsers.
 
 ## History
 - 2026-10-30 #1: Created the capability (create, list, edit and delete habits, stored in localStorage).
@@ -128,3 +131,4 @@ updated: 2026-11-02
 - 2026-10-31 #15: Added frequency (daily or weekdays), start date and optional end date with date rules, "Ended" display and legacy handling (D41–D52; D26, D30 and D36 superseded).
 - 2026-11-01 #2: Deleting a habit now also deletes its check-ins (D53; D40 superseded); the schedule is now used by daily check-in.
 - 2026-11-02 #33: Added optional cost and budget fields with validation, storage and corruption rules (D54–D58; D41, D48 and D49 superseded); budget display is in `habits/habit-budget`.
+- 2026-11-09 #47: Add and edit forms now share a compact, grouped layout with equal-size inputs and side-by-side dates (D59); visual only.
