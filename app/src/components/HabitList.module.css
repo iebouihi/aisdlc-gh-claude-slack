@@ -2,8 +2,16 @@
 .editForm {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
   margin: 16px 0;
+}
+
+/* A short group of related fields: same gap between all fields, labels above inputs. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  min-width: 0;
 }
 
 .editForm {
@@ -15,25 +23,37 @@
 .addRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--field-gap);
 }
 
+/* Every text, date, time, amount and select control: same height, font, border and radius. */
 .input {
   flex: 1 1 160px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
-  padding: 8px 10px;
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
   font: inherit;
+  font-size: var(--text-md);
+  line-height: 1.25;
   color: var(--fg);
   background: var(--bg);
   border: 1px solid var(--muted);
   border-radius: var(--radius);
 }
 
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .button,
 .primaryButton,
 .dangerButton {
-  padding: 8px 12px;
-  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--control-height);
   font: inherit;
   color: var(--fg);
   background: var(--bg);
@@ -181,7 +201,7 @@
 .schedule {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--field-gap);
 }
 
 .fieldset {
@@ -204,20 +224,37 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 32px;
+  min-height: var(--control-height);
 }
 
 .dates {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--field-gap);
+}
+
+/* Start and end date side by side from 480px, stacked below. */
+@media (min-width: 480px) {
+  .dates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Cost row; budget amount and period row (wraps on narrow screens). */
+.fieldRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--field-gap);
+}
+
+.fieldRow > .dateField {
+  flex: 1 1 140px;
 }
 
 .dateField {
   display: flex;
-  flex: 1 1 140px;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 

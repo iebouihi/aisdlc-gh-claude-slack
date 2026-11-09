@@ -14,7 +14,7 @@ export function BudgetFields({ idPrefix, draft, errors, onChange }: Props) {
   const budgetErrorId = `${idPrefix}-budget-error`;
   return (
     <div className={styles.schedule}>
-      <div className={styles.dates}>
+      <div className={styles.fieldRow}>
         <label className={styles.dateField}>
           Cost per check-in (optional)
           <input
@@ -27,6 +27,8 @@ export function BudgetFields({ idPrefix, draft, errors, onChange }: Props) {
             onChange={(e) => onChange({ ...draft, cost: e.target.value })}
           />
         </label>
+      </div>
+      <div className={styles.fieldRow}>
         <label className={styles.dateField}>
           Budget amount (optional)
           <input

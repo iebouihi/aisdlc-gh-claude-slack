@@ -403,27 +403,29 @@ export function HabitList() {
 
       {view === "habits" && (
         <form className={styles.addForm} onSubmit={submitAdd} noValidate>
-          <div className={styles.addRow}>
-            <input
-              ref={addInputRef}
-              data-focus="add-input"
-              className={styles.input}
-              type="text"
-              aria-label="New habit name"
-              placeholder="New habit, e.g. Drink 2L water"
-              value={addName}
-              aria-invalid={addError ? true : undefined}
-              aria-describedby={addError ? "add-error" : undefined}
-              onChange={(e) => {
-                setAddName(e.target.value);
-                setAddError(null);
-              }}
-            />
-            <button type="submit" className={styles.primaryButton}>
-              Add
-            </button>
+          <div className={styles.group}>
+            <div className={styles.addRow}>
+              <input
+                ref={addInputRef}
+                data-focus="add-input"
+                className={styles.input}
+                type="text"
+                aria-label="New habit name"
+                placeholder="New habit, e.g. Drink 2L water"
+                value={addName}
+                aria-invalid={addError ? true : undefined}
+                aria-describedby={addError ? "add-error" : undefined}
+                onChange={(e) => {
+                  setAddName(e.target.value);
+                  setAddError(null);
+                }}
+              />
+              <button type="submit" className={styles.primaryButton}>
+                Add
+              </button>
+            </div>
+            <IconPicker value={addIcon} onChange={setAddIcon} label="Icon (optional)" />
           </div>
-          <IconPicker value={addIcon} onChange={setAddIcon} label="Icon (optional)" />
           <ScheduleFields
             idPrefix="add"
             draft={addSchedule}
@@ -569,35 +571,37 @@ export function HabitList() {
                     }}
                     noValidate
                   >
-                    <div className={styles.addRow}>
-                      <input
-                        data-focus="edit-input"
-                        className={styles.input}
-                        type="text"
-                        aria-label={`Name for ${habit.name}`}
-                        value={editing.name}
-                        aria-invalid={editing.error ? true : undefined}
-                        aria-describedby={editing.error ? "edit-error" : undefined}
-                        onChange={(e) =>
-                          setEditing({ ...editing, name: e.target.value, error: null })
-                        }
+                    <div className={styles.group}>
+                      <div className={styles.addRow}>
+                        <input
+                          data-focus="edit-input"
+                          className={styles.input}
+                          type="text"
+                          aria-label={`Name for ${habit.name}`}
+                          value={editing.name}
+                          aria-invalid={editing.error ? true : undefined}
+                          aria-describedby={editing.error ? "edit-error" : undefined}
+                          onChange={(e) =>
+                            setEditing({ ...editing, name: e.target.value, error: null })
+                          }
+                        />
+                        <button type="submit" className={styles.primaryButton}>
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.button}
+                          onClick={() => cancelEdit(true)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <IconPicker
+                        value={editing.icon}
+                        onChange={(icon) => setEditing({ ...editing, icon })}
+                        label={`Icon for ${habit.name} (optional)`}
                       />
-                      <button type="submit" className={styles.primaryButton}>
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.button}
-                        onClick={() => cancelEdit(true)}
-                      >
-                        Cancel
-                      </button>
                     </div>
-                    <IconPicker
-                      value={editing.icon}
-                      onChange={(icon) => setEditing({ ...editing, icon })}
-                      label={`Icon for ${habit.name} (optional)`}
-                    />
                     <ScheduleFields
                       idPrefix="edit"
                       draft={editing.schedule}
