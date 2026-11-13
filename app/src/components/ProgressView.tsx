@@ -8,11 +8,14 @@ import {
   NO_SCHEDULED_DAYS_TEXT,
   PERIODS,
   figureText,
+  groupByCategory,
+  hasCategories,
   progress,
   type ChartType,
   type DayTotal,
   type Period,
   type ProgressDay,
+  type ProgressRow,
 } from "@/lib/progress";
 import styles from "./ProgressView.module.css";
 
@@ -193,35 +196,31 @@ export function ProgressView({
       )}
 
       <h3 className={styles.subheading}>Per habit</h3>
-      <ul className={styles.habits}>
-        {p.rows.map((r) => (
-          <li key={r.habit.id} className={styles.habit}>
-            <span className={styles.habitName}>
-              <span aria-hidden="true">{iconEmoji(r.habit.icon)}</span> {r.habit.name}
-            </span>
-            {r.expected === 0 ? (
-              <span className={styles.note}> {NO_SCHEDULED_DAYS_TEXT}</span>
-            ) : (
-              <>
-                <div className={styles.figure}>
-                  {figureText(r.done, r.expected)} · {r.percent}%
-                </div>
-                <div
-                  className={styles.track}
-                  role="progressbar"
-                  aria-label={`${r.habit.name}: ${figureText(r.done, r.expected)}`}
-                  aria-valuemin={0}
-                  aria-valuemax={r.expected}
-                  aria-valuenow={r.done}
-                >
-                  <div className={styles.fill} style={{ width: `${r.percent}%` }} />
-                </div>
-                {r.todayPending && <div className={styles.note}>Today: not done yet</div>}
-              </>
+      {hasCategories(p.rows) ? (
+        groupByCategory(p.rows).map((g) => (
+          <section key={g.id} aria-labelledby={`category-${g.id}`}>
+            <h4 id={`category-${g.id}`} className={styles.categoryHeading}>
+              {g.label}
+            </h4>
+            {g.expected > 0 && (
+              <div className={styles.figure}>
+                {figureText(g.done, g.expected)} · {g.percent}%
+              </div>
             )}
-          </li>
-        ))}
-      </ul>
+            <ul className={styles.habits}>
+              {g.rows.map((r) => (
+                <HabitRow key={r.habit.id} r={r} />
+              ))}
+            </ul>
+          </section>
+        ))
+      ) : (
+        <ul className={styles.habits}>
+          {p.rows.map((r) => (
+            <HabitRow key={r.habit.id} r={r} />
+          ))}
+        </ul>
+      )}
       {withDays.length > 0 && (
         <table className={styles.srOnly}>
           <caption>{`Done and expected per habit, ${periodLabel}`}</caption>
@@ -246,6 +245,36 @@ export function ProgressView({
         </table>
       )}
     </div>
+  );
+}
+
+function HabitRow({ r }: { r: ProgressRow }) {
+  return (
+    <li className={styles.habit}>
+      <span className={styles.habitName}>
+        <span aria-hidden="true">{iconEmoji(r.habit.icon)}</span> {r.habit.name}
+      </span>
+      {r.expected === 0 ? (
+        <span className={styles.note}> {NO_SCHEDULED_DAYS_TEXT}</span>
+      ) : (
+        <>
+          <div className={styles.figure}>
+            {figureText(r.done, r.expected)} · {r.percent}%
+          </div>
+          <div
+            className={styles.track}
+            role="progressbar"
+            aria-label={`${r.habit.name}: ${figureText(r.done, r.expected)}`}
+            aria-valuemin={0}
+            aria-valuemax={r.expected}
+            aria-valuenow={r.done}
+          >
+            <div className={styles.fill} style={{ width: `${r.percent}%` }} />
+          </div>
+          {r.todayPending && <div className={styles.note}>Today: not done yet</div>}
+        </>
+      )}
+    </li>
   );
 }
 

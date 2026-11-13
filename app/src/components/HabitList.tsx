@@ -56,6 +56,7 @@ import { AppNav, type View } from "./AppNav";
 import { Badges } from "./Badges";
 import { BudgetFields } from "./BudgetFields";
 import { DeleteDialog } from "./DeleteDialog";
+import { CategorySelect } from "./CategorySelect";
 import { IconPicker } from "./IconPicker";
 import { ProfileName } from "./ProfileName";
 import {
@@ -85,6 +86,7 @@ type Editing = {
   id: string;
   name: string;
   icon: string | undefined;
+  category: string;
   error: string | null;
   schedule: ScheduleDraft;
   scheduleErrors: ScheduleErrors;
@@ -166,6 +168,7 @@ export function HabitList() {
 
   const [addName, setAddName] = useState("");
   const [addIcon, setAddIcon] = useState<string | undefined>();
+  const [addCategory, setAddCategory] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   // Start date is empty until mounted, so the static build never bakes in a date.
   const [addSchedule, setAddSchedule] = useState<ScheduleDraft>({
@@ -315,9 +318,10 @@ export function HabitList() {
     const { errors: moneyErrors, money } = validateMoney(addMoney);
     setAddMoneyErrors(moneyErrors);
     if (error || hasErrors(scheduleErrors) || hasMoneyErrors(moneyErrors)) return;
-    persist(addHabit(habits, addName, addIcon, new Date(), schedule, money));
+    persist(addHabit(habits, addName, addIcon, new Date(), schedule, money, addCategory));
     setAddName("");
     setAddIcon(undefined);
+    setAddCategory("");
     setAddSchedule(newDraft());
     setAddMoney(emptyMoneyDraft());
     addInputRef.current?.focus();
@@ -328,6 +332,7 @@ export function HabitList() {
       id: habit.id,
       name: habit.name,
       icon: habit.icon,
+      category: habit.category ?? "",
       error: null,
       schedule: draftFromSchedule(habit),
       scheduleErrors: {},
@@ -354,7 +359,17 @@ export function HabitList() {
       setEditing({ ...editing, error, scheduleErrors, moneyErrors });
       return;
     }
-    persist(updateHabit(habits, editing.id, editing.name, editing.icon, schedule, money));
+    persist(
+      updateHabit(
+        habits,
+        editing.id,
+        editing.name,
+        editing.icon,
+        schedule,
+        money,
+        editing.category,
+      ),
+    );
     pendingFocus.current = `[data-focus="edit-${editing.id}"]`;
     setEditing(null);
   }
@@ -424,6 +439,7 @@ export function HabitList() {
                 Add
               </button>
             </div>
+            <CategorySelect id="add-category" value={addCategory} onChange={setAddCategory} />
             <IconPicker value={addIcon} onChange={setAddIcon} label="Icon (optional)" />
           </div>
           <ScheduleFields
@@ -596,6 +612,11 @@ export function HabitList() {
                           Cancel
                         </button>
                       </div>
+                      <CategorySelect
+                        id="edit-category"
+                        value={editing.category}
+                        onChange={(category) => setEditing({ ...editing, category })}
+                      />
                       <IconPicker
                         value={editing.icon}
                         onChange={(icon) => setEditing({ ...editing, icon })}
