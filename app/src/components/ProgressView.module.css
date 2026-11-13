@@ -63,6 +63,14 @@
   margin: var(--space-4) 0 var(--space-2);
 }
 
+.categoryHeading {
+  font-size: var(--text-md);
+  margin: var(--space-4) 0 var(--space-1);
+  padding-bottom: var(--space-1);
+  border-bottom: 2px solid var(--fg);
+  overflow-wrap: anywhere;
+}
+
 .figure {
   font-weight: 600;
   margin: var(--space-2) 0;

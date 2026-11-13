@@ -1,5 +1,6 @@
 /** Progress chart domain logic: done vs expected check-ins over a rolling period. Pure, no React. */
 import { isChecked, type CheckIn } from "./checkins";
+import { CATEGORY_CATALOG, UNCATEGORISED_LABEL, findCategory } from "./categories";
 import type { Habit } from "./habits";
 
 export type Period = 7 | 30;
@@ -117,4 +118,41 @@ export function progress(
   const done = counted.reduce((n, r) => n + r.done, 0);
   const expected = counted.reduce((n, r) => n + r.expected, 0);
   return { days, rows, perDay, done, expected, percent: percentOf(done, expected) };
+}
+
+export type CategoryGroup = {
+  /** Catalog id, or "uncategorised". */
+  id: string;
+  label: string;
+  rows: ProgressRow[];
+  done: number;
+  expected: number;
+  percent: number | null;
+};
+
+/** True when at least one row has a known category (grouping is then shown). */
+export function hasCategories(rows: readonly ProgressRow[]): boolean {
+  return rows.some((r) => findCategory(r.habit.category));
+}
+
+/**
+ * Rows grouped by category in catalog order, "Uncategorised" last (missing or unknown id), rows in
+ * the given (creation) order; empty groups are left out. A group's figure sums its habits' done
+ * and expected counts (habits without expected days add 0).
+ */
+export function groupByCategory(rows: readonly ProgressRow[]): CategoryGroup[] {
+  const slots: { id: string; label: string }[] = [
+    ...CATEGORY_CATALOG,
+    { id: "uncategorised", label: UNCATEGORISED_LABEL },
+  ];
+  return slots
+    .map(({ id, label }) => {
+      const own = rows.filter(
+        (r) => (findCategory(r.habit.category)?.id ?? "uncategorised") === id,
+      );
+      const done = own.reduce((n, r) => n + r.done, 0);
+      const expected = own.reduce((n, r) => n + r.expected, 0);
+      return { id, label, rows: own, done, expected, percent: percentOf(done, expected) };
+    })
+    .filter((g) => g.rows.length > 0);
 }

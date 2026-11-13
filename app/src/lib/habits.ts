@@ -1,5 +1,6 @@
 /** Habit domain logic: validation, parsing stored data and list updates. Pure, no React. */
 import { isAmount, parseBudget, type Budget, type Money } from "./budget";
+import { findCategory } from "./categories";
 import { findIcon } from "./icons";
 import {
   isLocalDate,
@@ -26,6 +27,8 @@ export type Habit = {
   budget?: Budget;
   /** Local time "HH:mm" of the in-page reminder; missing means no reminder. */
   reminderTime?: string;
+  /** Id from `CATEGORY_CATALOG`; missing means Uncategorised. */
+  category?: string;
 };
 
 const DAILY: Frequency = { type: "daily" };
@@ -70,7 +73,7 @@ export function createId(): string {
 /**
  * Turn a stored value into habits. Returns null when the value is corrupted (not an array, or an
  * entry has no id or name, a name over 60 characters, or a present but malformed frequency,
- * startDate, endDate or reminderTime). A missing icon, frequency or startDate is not an error: a legacy habit
+ * startDate, endDate, reminderTime or category; an unknown category id is dropped). A missing icon, frequency or startDate is not an error: a legacy habit
  * becomes Daily from its createdAt (local) date.
  */
 export function parseHabits(value: unknown): Habit[] | null {
@@ -79,8 +82,19 @@ export function parseHabits(value: unknown): Habit[] | null {
   const habits: Habit[] = [];
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) return null;
-    const { id, name, createdAt, icon, frequency, startDate, endDate, cost, budget, reminderTime } =
-      entry as Record<string, unknown>;
+    const {
+      id,
+      name,
+      createdAt,
+      icon,
+      frequency,
+      startDate,
+      endDate,
+      cost,
+      budget,
+      reminderTime,
+      category,
+    } = entry as Record<string, unknown>;
     if (typeof id !== "string" || id === "") return null;
     if (typeof name !== "string" || name.trim() === "") return null;
     if (nameLength(name.trim()) > MAX_NAME_LENGTH) return null;
@@ -90,6 +104,7 @@ export function parseHabits(value: unknown): Habit[] | null {
     if (startDate !== undefined && !isLocalDate(startDate)) return null;
     if (endDate !== undefined && !isLocalDate(endDate)) return null;
     if (reminderTime !== undefined && !isReminderTime(reminderTime)) return null;
+    if (category !== undefined && typeof category !== "string") return null;
     if (cost !== undefined && !isAmount(cost)) return null;
     const parsedBudget = budget === undefined ? undefined : parseBudget(budget);
     if (parsedBudget === null) return null;
@@ -107,6 +122,7 @@ export function parseHabits(value: unknown): Habit[] | null {
     if (cost !== undefined) habit.cost = cost;
     if (parsedBudget) habit.budget = parsedBudget;
     if (typeof icon === "string" && findIcon(icon)) habit.icon = icon;
+    if (typeof category === "string" && findCategory(category)) habit.category = category;
     habits.push(habit);
   }
   return habits;
@@ -136,6 +152,7 @@ export function addHabit(
   now: Date = new Date(),
   schedule: Schedule = { frequency: DAILY, startDate: toLocalDate(now) },
   money: Money = {},
+  category?: string,
 ): Habit[] {
   const habit = applySchedule(
     { id: createId(), name: name.trim(), createdAt: now.toISOString() } as Habit,
@@ -143,6 +160,7 @@ export function addHabit(
   );
   if (icon) habit.icon = icon;
   applyMoney(habit, money);
+  if (category && findCategory(category)) habit.category = category;
   return [...habits, habit];
 }
 
@@ -154,6 +172,8 @@ export function updateHabit(
   icon: string | undefined,
   schedule?: Schedule,
   money?: Money,
+  /** Undefined leaves the category as is; "" or an unknown id clears it. */
+  category?: string,
 ): Habit[] {
   return habits.map((h) => {
     if (h.id !== id) return h;
@@ -161,6 +181,10 @@ export function updateHabit(
     delete updated.icon;
     if (icon) updated.icon = icon;
     if (money) applyMoney(updated, money);
+    if (category !== undefined) {
+      delete updated.category;
+      if (findCategory(category)) updated.category = category;
+    }
     return schedule ? applySchedule(updated, schedule) : updated;
   });
 }
