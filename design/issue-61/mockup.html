@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>#61 Week navigation mockup</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #f6f8fa;
+  --fg: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --border-strong: #59636e;
+  --accent: #0b6bcb;
+  --on-accent: #ffffff;
+  --danger: #b42318;
+  --on-danger: #ffffff;
+  --overlay: rgb(0 0 0 / 50%);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --control-height: 40px;
+  --field-gap: var(--space-3);
+  --radius: 8px;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:var(--space-4);font-family:var(--font-sans);color:var(--fg);background:var(--surface)}
+h1{font-size:var(--text-lg);margin:0 0 var(--space-2)}
+h2{font-size:var(--text-md);margin:var(--space-6) 0 var(--space-2)}
+header p{margin:0 0 var(--space-2);color:var(--muted)}
+.new{position:relative;outline:2px dashed var(--accent);outline-offset:2px}
+.tag{display:inline-block;background:var(--accent);color:var(--on-accent);font-size:0.7rem;padding:0 var(--space-2);border-radius:var(--radius);margin-left:var(--space-2)}
+.frames{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:flex-start}
+.frame{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:var(--space-4);width:100%;max-width:640px}
+.frame.mobile{max-width:320px}
+.label{font-size:var(--text-sm);color:var(--muted);margin:0 0 var(--space-2)}
+nav.app{display:flex;gap:var(--space-4);border-bottom:1px solid var(--border);margin-bottom:var(--space-4)}
+nav.app a{padding:var(--space-2) 0;color:var(--fg);text-decoration:none}
+nav.app a[aria-current]{font-weight:700;text-decoration:underline}
+.wk h3{margin:0;font-size:var(--text-lg)}
+.nav{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin-top:var(--space-3)}
+.btn{min-height:var(--control-height);padding:0 var(--space-3);border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--bg);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+.btn:disabled{border-style:dashed;color:var(--muted);border-color:var(--border);cursor:not-allowed}
+.btn.focus{outline:3px solid var(--accent);outline-offset:2px}
+.range{flex:1;text-align:center;font-weight:600;min-width:140px;margin:0}
+table{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:var(--space-4)}
+caption{text-align:left;font-weight:600;padding-bottom:var(--space-2)}
+th,td{border-bottom:1px solid var(--border)}
+th.habit{width:34%;text-align:left;font-weight:600;padding:6px 4px;overflow-wrap:anywhere}
+th.day{font-size:0.7rem;font-weight:600;line-height:1.2;padding:4px 0;text-align:center}
+th.today{color:var(--accent)}
+.mark{display:block;font-size:0.65rem}
+.month{display:block;font-size:0.65rem;color:var(--muted);text-transform:uppercase}
+.sum{display:block;font-weight:400;font-size:0.75rem;color:var(--muted)}
+td{text-align:center;font-weight:700}
+td.done{color:var(--accent)}
+td.missed{color:var(--danger)}
+td.na{color:var(--muted)}
+td.tc{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.legend{font-size:0.8rem;color:var(--muted)}
+.empty{margin:var(--space-6) 0;font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <h1>#61 Week view: navigate to previous weeks</h1>
+  <p>Previous week / Next week buttons and a date range label above the Week table. Table, cells and legend are unchanged.</p>
+  <p><span class="new" style="padding:0 var(--space-2)">New or changed</span><span class="tag">New</span> dashed outline marks the delta.</p>
+</header>
+
+<h2>Current window · AC1, AC10, AC16</h2>
+<div class="frames">
+  <div class="frame wk">
+    <p class="label">Desktop. "Next week" disabled (dashed border, muted). Month changes Oct to Nov.</p>
+    <nav class="app" aria-label="Main"><a href="#">Today</a><a href="#" aria-current="page">Week</a><a href="#">Progress</a><a href="#">Habits</a></nav>
+    <h3>Week</h3>
+    <div class="nav new">
+      <button class="btn focus" type="button">Previous week</button>
+      <p class="range" aria-live="polite">Oct 29 – Nov 4<span class="tag">New</span></p>
+      <button class="btn" type="button" disabled>Next week</button>
+    </div>
+    <table>
+      <caption class="new">Oct 29 – Nov 4</caption>
+      <thead><tr>
+        <th scope="col" class="habit">Habit</th>
+        <th scope="col" class="day new"><span class="month">Oct</span>Wed 29</th>
+        <th scope="col" class="day">Thu 30</th>
+        <th scope="col" class="day">Fri 31</th>
+        <th scope="col" class="day new"><span class="month">Nov</span>Sat 1</th>
+        <th scope="col" class="day">Sun 2</th>
+        <th scope="col" class="day">Mon 3</th>
+        <th scope="col" class="day today" aria-current="date">Tue 4<span class="mark">Today</span></th>
+      </tr></thead>
+      <tbody>
+        <tr><th scope="row" class="habit">🏃 Run<span class="sum">4 of 6 scheduled days done</span></th>
+          <td class="done">✓</td><td class="missed">✗</td><td class="done">✓</td><td class="done">✓</td><td class="na">–</td><td class="done">✓</td><td class="na tc">○</td></tr>
+      </tbody>
+    </table>
+    <p class="legend">✓ done · ✗ missed · ○ not done yet · – not scheduled · · not active</p>
+  </div>
+
+  <div class="frame wk mobile">
+    <p class="label">320px · AC17: buttons and label wrap, no horizontal scroll</p>
+    <h3>Week</h3>
+    <div class="nav new">
+      <p class="range" aria-live="polite" style="flex-basis:100%;order:-1">Oct 29 – Nov 4</p>
+      <button class="btn" type="button" style="flex:1">Previous week</button>
+      <button class="btn" type="button" style="flex:1" disabled>Next week</button>
+    </div>
+    <table>
+      <caption>Oct 29 – Nov 4</caption>
+      <thead><tr><th scope="col" class="habit">Habit</th><th scope="col" class="day">Mon 3</th><th scope="col" class="day today">Tue 4<span class="mark">Today</span></th></tr></thead>
+      <tbody><tr><th scope="row" class="habit">🏃 Run a very long habit name that wraps<span class="sum">4 of 6 scheduled days done</span></th><td class="done">✓</td><td class="na tc">○</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<h2>Past window · AC2, AC3, AC5, AC6, AC7, AC11</h2>
+<div class="frames">
+  <div class="frame wk">
+    <p class="label">Both buttons enabled. No "Not done yet"; no today mark. Ended habit listed; cells read-only (a check-in on an unscheduled day shows ✓).</p>
+    <h3>Week</h3>
+    <div class="nav new">
+      <button class="btn" type="button">Previous week</button>
+      <p class="range" aria-live="polite">Oct 15 – Oct 21</p>
+      <button class="btn" type="button">Next week</button>
+    </div>
+    <table>
+      <caption>Oct 15 – Oct 21</caption>
+      <thead><tr><th scope="col" class="habit">Habit</th>
+        <th scope="col" class="day">Wed 15</th><th scope="col" class="day">Thu 16</th><th scope="col" class="day">Fri 17</th><th scope="col" class="day">Sat 18</th><th scope="col" class="day">Sun 19</th><th scope="col" class="day">Mon 20</th><th scope="col" class="day">Tue 21</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" class="habit">🏃 Run<span class="sum">3 of 5 scheduled days done</span></th>
+          <td class="done">✓</td><td class="missed">✗</td><td class="done">✓</td><td class="done">✓</td><td class="na">–</td><td class="missed">✗</td><td class="na">–</td></tr>
+        <tr><th scope="row" class="habit">📖 Read (ended Oct 17)<span class="sum">2 of 3 scheduled days done</span></th>
+          <td class="done">✓</td><td class="missed">✗</td><td class="done">✓</td><td class="na">·</td><td class="na">·</td><td class="done">✓</td><td class="na">·</td></tr>
+        <tr><th scope="row" class="habit">🧘 Stretch<span class="sum">No scheduled days</span></th>
+          <td class="na">·</td><td class="na">·</td><td class="na">·</td><td class="na">·</td><td class="na">–</td><td class="na">–</td><td class="na">–</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2>Earliest window · AC4</h2>
+<div class="frames">
+  <div class="frame wk">
+    <p class="label">"Previous week" disabled: dashed border and muted text, not colour alone</p>
+    <div class="nav new">
+      <button class="btn" type="button" disabled>Previous week</button>
+      <p class="range" aria-live="polite">Sep 24 – Sep 30</p>
+      <button class="btn" type="button">Next week</button>
+    </div>
+  </div>
+</div>
+
+<h2>No habits in window · AC9</h2>
+<div class="frames">
+  <div class="frame wk">
+    <div class="nav new">
+      <button class="btn" type="button">Previous week</button>
+      <p class="range" aria-live="polite">Oct 1 – Oct 7</p>
+      <button class="btn" type="button">Next week</button>
+    </div>
+    <p class="empty new">No habits in this week</p>
+  </div>
+</div>
+
+<h2>No habits at all</h2>
+<div class="frames">
+  <div class="frame wk">
+    <p class="label">Unchanged: existing empty state, navigation not shown</p>
+    <p class="empty">No habits yet</p>
+  </div>
+</div>
+</body>
+</html>
