@@ -148,6 +148,9 @@ def test_merged_design_pr_without_pending_review_is_ignored():
 def test_developer_cannot_start_before_the_design():
     cfg, f, d = setup("ready_design", "dev_trigger")
     assert d.start(7, RUN) == {"go": "false"} and labels(f) == [cfg["github"]["labels"]["ready_design"]]
+    hint = f.comments[-1]  # tells people what to do instead
+    assert "design comes first" in hint and f"`{cfg['design']['labels']['trigger']}`" in hint
+    assert f"`{cfg['design']['labels']['skip']}`" in hint
 
 
 def test_claude_mentions_use_the_agent_of_the_branch():
