@@ -23,6 +23,10 @@ Closes #<issue>
 ## Spec decisions honoured
 - `habits/habit-management` D3 (trimmed, 1–60 chars): `validateName` in `src/lib/habits.ts`
 
+## Design followed
+- `design/issue-<issue>/technical-spec.md` + mockup: <followed, or each deviation and why>
+- Technical decisions honoured: <TD<n> list, or "No design (skipped)">
+
 ## Code map
 - <rows added or changed in app/ARCHITECTURE.md, and any architecture decision (A<n>)>
 

@@ -1,9 +1,10 @@
 # AI-integrated SDLC: how this repo works
 
 This repository is a working model of an AI-integrated software lifecycle for a small product,
-*good-habit-tracker*. Three flows run today: **requirements** (refine, approve, update the
-living specs), **delivery** (implement, review, merge) and **bug fixes** (investigate the root
-cause, validate, fix, review, merge). Agents do the drafting and the
+*good-habit-tracker*. Four flows run today: **requirements** (refine, approve, update the
+living specs), **design** (technical spec and HTML mockup, review, merge), **delivery**
+(implement, review, merge) and **bug fixes** (investigate the root cause, validate, fix, review,
+merge). Agents do the drafting and the
 bookkeeping; people make every decision. Four ideas carry the whole design.
 
 ---
@@ -23,7 +24,10 @@ accountability. So every step has a clear owner, and every decision passes a hum
 | **Approval gate** | | **PO approves** (✅ or "approved") |
 | Spec update | commits the spec changes, opens a pull request, announces it | |
 | **Review gate** | | **team reviews and merges** the spec PR |
-| Ready | marks the issue `ready-for-dev`, closes the loop in Slack | |
+| Ready for design | marks the issue `ready-for-design`, closes the loop in Slack | |
+| **Design gate** | | **a person adds `design`** (or `skip-design`) |
+| Design | writes the technical spec and the HTML mockup, updates the technical decisions, opens a PR | |
+| **Design review gate** | answers `@claude …` change requests on the PR | **team reviews and merges** → `ready-for-dev` |
 | **Start gate** | | **a person adds `implement`** |
 | Implementation | implements in `app/`, tests every acceptance criterion, updates the code map, opens a PR | |
 | **Code review gate** | answers `@claude …` change requests on the PR | **team reviews and merges** |
@@ -51,13 +55,16 @@ Agents are only as good as the context they get. Three kinds of context, each in
 | Context | Where | What it holds |
 |---|---|---|
 | **Current truth** | `specs/` | how the product works *today*: one file per capability, rules, decisions with stable IDs |
+| **Technical decisions** | `design/TECHNICAL-DECISIONS.md` | *how features are designed*: overview of the technical picture, decisions `TD<n>` |
+| **Feature designs** | `design/issue-<n>/` | the agreed technical spec (AC → design) and HTML mockup of one feature |
 | **Code map** | `app/ARCHITECTURE.md` | *where and how* it is built: structure, modules, conventions, architecture decisions |
 | **Change history** | GitHub issues and PRs | what was asked, when, and why it changed |
 | **Reasoning** | Slack threads | the discussion behind each decision |
 
 **Living** means this context is kept true by the work itself: an approved requirement *edits*
 the specs it touches (changed decisions are superseded, never left contradicting each other),
-and every developer PR updates the code map in the same diff. Both go through review. The next
+every design PR updates the technical decisions, and every developer PR updates the code map in
+the same diff. Both go through review. The next
 agent, and the next developer, start from them. Tests named after acceptance criteria
 (`AC3 (#1): …`) link the requirement to the code that proves it.
 
@@ -73,11 +80,13 @@ Instructions are **files**, written once and used two ways.
 
 - **Agent** (`.claude/agents/*.md`): *who* - role, principles, which skills it preloads.
   `requirements-refiner` runs the refinement; `impact-analyst` researches impact;
-  `developer` implements approved issues and validated fixes; `bug-investigator` finds root
+  `designer` writes the technical spec and HTML mockup; `developer` implements approved
+  issues and validated fixes; `bug-investigator` finds root
   causes without changing code.
 - **Skill** (`.claude/skills/<name>/SKILL.md`): *how* - one task done well:
   `impact-analysis`, `refine-kickoff`, `refine-thread`, `requirement-format`, `living-spec`
-  for requirements; `implement-issue`, `tests-from-acceptance-criteria`, `code-map`,
+  for requirements; `design-feature`, `design-guidelines`, `technical-spec`, `ui-mockup`,
+  `technical-summary` for design; `implement-issue`, `tests-from-acceptance-criteria`, `code-map`,
   `pr-description` for delivery; `investigate-bug`, `root-cause-report`, `fix-bug` for bugs.
   A skill used by the automation also ships an `output.schema.json`: the structured answer.
 
@@ -101,7 +110,9 @@ requests, diffable and testable, like code.
 | `.claude/skills/*/SKILL.md` | methods, output formats, update rules |
 | `config/refinement.yml` | channel, approver, labels, budgets, model, prompts, every posted text |
 | `specs/**` | the product's current behaviour and decisions |
+| `design/TECHNICAL-DECISIONS.md` | the technical choices every design and build respects |
 | `app/ARCHITECTURE.md` | how the code is organised and the architecture decisions |
+| `.claude/designer-settings.json` | what the designer agent may touch (`design/` only) and run |
 | `.claude/developer-settings.json` | what the developer agent may touch (`app/` only) and run |
 | `.claude/investigator-settings.json` | the bug investigator: read and reproduce; no commit, push or PR |
 | `docs/refinement-workflow.md` | the process |
@@ -113,8 +124,8 @@ Guard rails that keep it honest:
   the real files (22 scenarios: conflicts, change requests, approvals, spec updates, failures).
 - **Traceability:** issue → Slack thread → decisions (who, where) → spec PR → merge.
 - **Least privilege:** the refinement token can only touch issues, the spec branch and PRs; the
-  developer agent may edit only `app/` (permission rules), and CI fails any agent PR that changes
-  files outside `app/`, whatever the agent was told.
+  designer agent may edit only `design/` and the developer agent only `app/` (permission rules),
+  and CI fails any agent PR that changes files outside its folder, whatever the agent was told.
 - **CI is the floor:** typecheck, tests and a static build on every PR.
 
 ---
@@ -134,7 +145,7 @@ flowchart TD
     H -- "changes requested" --> E
     H -- "approved" --> I["Spec branch + pull request<br/>announced in Slack<br/>issue body updated<br/>label: spec-review"]
     I --> J{"Team reviews<br/>the spec PR"}
-    J -- "merged" --> K["specs/ updated for every agent<br/>label: ready-for-dev"]
+    J -- "merged" --> K["specs/ updated for every agent<br/>label: ready-for-design"]
     D -. "quiet for 3 days" .-> L["Nudge, then blocked"]
     L -. "reply" .-> D
 
@@ -148,13 +159,46 @@ flowchart TD
 
 Yellow: people decide. Blue: agents and automation. Green: shared context updated.
 
+## The design phase
+
+Between *what* (the approved requirement) and *code*, a designer agent decides *how*: the
+technical approach, data and state, the acceptance criteria mapped to modules, and an HTML mockup
+of every UI state. People review the design before anyone builds it.
+
+```mermaid
+flowchart TD
+    R["Issue ready-for-design<br/>approved requirement + merged spec"] --> T{"A person decides"}
+    T -- "label: skip-design<br/>(small or non-UI change)" --> D
+    T -- "label: design" --> S["Designer agent starts<br/>Claude Code GitHub Action<br/>label: under-design"]
+    S --> B["Reads requirement, living specs,<br/>TECHNICAL-DECISIONS.md, code map, tokens"]
+    B --> W["Writes design/issue-n/technical-spec.md<br/>+ mockup.html (real tokens, every state)<br/>+ updates TECHNICAL-DECISIONS.md"]
+    W --> P["Design PR opened<br/>announced in Slack with a mockup link<br/>label: design-review"]
+    P --> G["CI: changes only in design/"]
+    G --> V{"Team reviews"}
+    V -- "@claude change request" --> F["Designer applies the change<br/>pushes to the same PR"]
+    F --> G
+    V -- "merged" --> D["Issue ready-for-dev<br/>design + technical decisions<br/>are context for the developer"]
+    S -. "blocked or nothing pushed" .-> X["Back to ready-for-design<br/>reason in the run"]
+
+    classDef human fill:#fde68a,stroke:#b45309,color:#1f2937
+    classDef agent fill:#bfdbfe,stroke:#1d4ed8,color:#1f2937
+    classDef truth fill:#bbf7d0,stroke:#15803d,color:#1f2937
+    class T,V human
+    class S,B,W,P,F,X,G agent
+    class R,D truth
+```
+
+| Input | Output | Living context updated |
+|---|---|---|
+| the refined requirement (issue body: decisions, AC), the related living specs | `design/issue-<n>/technical-spec.md` (approach, `TD` decisions, modules and files, data, state, AC → design, risks, open questions) and `design/issue-<n>/mockup.html` | `design/TECHNICAL-DECISIONS.md`: a short summary of technical choices every later design, build and bug investigation starts from |
+
 ## The delivery phase
 
 ```mermaid
 flowchart TD
-    R["Issue ready-for-dev<br/>approved requirement + merged spec"] --> T["A person adds the label: implement"]
+    R["Issue ready-for-dev<br/>approved requirement + merged spec<br/>+ merged design"] --> T["A person adds the label: implement"]
     T --> S["Developer agent starts<br/>Claude Code GitHub Action<br/>label: in-development"]
-    S --> B["Reads issue, living specs, code map<br/>builds in app/, a test per AC,<br/>updates the code map"]
+    S --> B["Reads issue, living specs, design,<br/>technical decisions, code map<br/>builds in app/, a test per AC,<br/>updates the code map"]
     B --> C{"npm run check<br/>passes?"}
     C -- "no" --> B
     C -- "yes" --> P["Pull request opened<br/>announced in Slack<br/>label: in-review"]
@@ -221,7 +265,7 @@ approves, and the result updates the context for the next phase.
 | Phase | Agent drafts | Human gate | Context updated |
 |---|---|---|---|
 | Requirements (this repo) | questions, final requirement, spec changes | approval + spec PR | `specs/` |
-| Design | technical approach, data model changes | design review | `specs/`, decision log |
+| Design (this repo) | technical spec, HTML mockup, technical decisions | start label + design review | `design/TECHNICAL-DECISIONS.md`, `design/issue-<n>/` |
 | Build (this repo) | code and tests from the spec and acceptance criteria | start label + code review | code, tests linked to AC IDs, code map |
 | Test | test cases from acceptance criteria, results | QA sign-off | coverage per AC |
 | Release | release notes from merged specs and PRs | release approval | changelog |

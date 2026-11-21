@@ -15,7 +15,8 @@ github:
     needs: needs-refinement      # added by the PO: start refinement
     active: in-refinement        # thread open in Slack
     spec_review: spec-review     # approved; living spec pull request waiting for merge
-    ready: ready-for-dev         # spec merged, issue body is final
+    ready_design: ready-for-design  # spec merged, issue body is final: waiting for the technical design
+    ready: ready-for-dev         # design merged (or skipped): the developer agent may start
     blocked: blocked             # no answers for too long
 
 slack:
@@ -85,6 +86,26 @@ refinement:
     # a reply from the approver made only of these words / emoji counts as approval
     reply_words: ["✅", "✔️", ":white_check_mark:", ":heavy_check_mark:", ":+1:", "👍",
                   "approve", "approved", "lgtm", "go", "go ahead", "ship it", "ok", "okay"]
+
+# Design: the designer agent writes the technical spec and the HTML mockup of a refined issue in
+# design/ (Claude Code GitHub Action). Merging the design PR makes the issue ready for dev.
+design:
+  dir: design
+  summary_file: design/TECHNICAL-DECISIONS.md     # living summary of technical choices
+  labels:
+    trigger: design              # a person adds it to a ready-for-design issue to start the agent
+    active: under-design         # the agent is working
+    review: design-review        # design pull request open, waiting for people
+    skip: skip-design            # a person skips the design step: straight to ready-for-dev
+  branch_prefix: design/issue-
+  agent: designer                # .claude/agents/designer.md (runs as the main session)
+  prompt: "/design-feature {number} {branch}"     # the design-feature skill
+  model: claude-sonnet-5-5       # (env: DESIGN_CLAUDE_MODEL)
+  max_turns: 60
+  settings: .claude/designer-settings.json       # permission rules: design/ only
+  # link that renders the HTML mockup straight from GitHub (public repos)
+  preview_url: "https://htmlpreview.github.io/?https://github.com/{repo}/blob/{branch}/{path}"
+  mockup_file: "{dir}/issue-{number}/mockup.html"
 
 # Delivery: the developer agent implements ready issues in app/ (Claude Code GitHub Action).
 delivery:
@@ -196,14 +217,25 @@ messages:
     spec_pr: |-
       📚 *Living spec update for review* - #{number} {title}
       Approved by {approver}. The living specs are updated to match: {files}
-      <{pr_url}|Review and merge PR #{pr_number}> - #{number} becomes *ready for dev* when it is merged.
+      <{pr_url}|Review and merge PR #{pr_number}> - #{number} becomes *ready for design* when it is merged.
     spec_branch: |-
       📚 *Living spec update for review* - #{number} {title}
       Approved by {approver}. The spec changes are on branch `{branch}`: {files}
-      <{compare_url}|Open the pull request> and merge it - #{number} becomes *ready for dev* then.
+      <{compare_url}|Open the pull request> and merge it - #{number} becomes *ready for design* then.
     nudge: '⏰ Friendly nudge: some questions above are still open. Answer by number, or "rest ok" to accept the defaults.'
     blocked: "🚧 No answers for a while - #{number} is now marked *blocked*. Reply here to resume."
-    done: "✅ Done - #{number} is ready for dev: <{url}|issue #{number}>"
+    done: "✅ Refined - #{number} is ready for design: <{url}|issue #{number}>. Add `{trigger}` to start the designer agent, or `{skip}` to go straight to dev."
+    design_started: "📐 *Designer agent started* on #{number} {title}, branch `{branch}`. <{run_url}|Follow the run>"
+    design_pr: |-
+      📐 *Design ready for review* - #{number} {title}
+      <{pr_url}|Review PR #{pr_number}>{mockup}. Technical spec, mockup and technical decisions are in the PR. Comment `@claude ...` on the PR to request changes; merging makes #{number} *ready for dev*.
+    design_branch: |-
+      📐 *Design ready for review* - #{number} {title}
+      The design is on branch `{branch}`{mockup}. <{compare_url}|Open the pull request>, review it and merge it - #{number} becomes *ready for dev* then.
+    design_mockup: " · <{mockup_url}|Open the mockup>"
+    design_no_changes: "⚠️ The designer agent finished #{number} without pushing a design. <{run_url}|Its summary is in the run>. The issue is back to *{ready}*."
+    design_done: "📐 Design of #{number} {title} merged: <{pr_url}|PR #{pr_number}>{mockup}. #{number} is *ready for dev*: add `{trigger}` to start the developer agent."
+    design_skipped: "⏭️ Design skipped for #{number} {title}: it is *ready for dev*. Add `{trigger}` to start the developer agent."
     dev_started: "🛠️ *Developer agent started* on #{number} {title}, branch `{branch}`. <{run_url}|Follow the run>"
     dev_pr: |-
       🛠️ *Code ready for review* - #{number} {title}
@@ -239,7 +271,7 @@ messages:
     approved: "✅ Approved by {approver} in Slack: {link}\n\nIssue body updated with the final requirement."
     spec_pr_opened: "📚 Living spec update: {pr_url}\nThis issue becomes `{ready}` when the pull request is merged."
     spec_branch_pushed: "📚 Living spec update pushed to `{branch}`. Open the pull request: {compare_url}\nThis issue becomes `{ready}` when it is merged."
-    spec_merged: "✅ Living spec merged in {pr_url}. Ready for development."
+    spec_merged: "✅ Living spec merged in {pr_url}. Ready for design: add `{trigger}` to start the designer agent, or `{skip}` to skip the design step."
     spec_pr_title: "Living spec: #{number} {title}"
     spec_pr_body: |-
       Updates the living specs for #{number}, approved by {approver} in Slack: {thread_link}
@@ -252,6 +284,20 @@ messages:
     original_request: "Original request"
     approved_by: "Approved by: {approver} on {date}"
     approved_pending: "Approved by: (pending)"
+    design_not_ready: "The designer agent only starts on issues labelled `{ready}`. Removed `{trigger}`."
+    skip_not_ready: "`{skip}` only applies to issues labelled `{ready}`. Removed `{skip}`."
+    design_started: "📐 Designer agent started on branch `{branch}`: {run_url}"
+    design_pr: "📐 Design ready for review: {pr_url}"
+    design_branch: "📐 Design pushed to `{branch}`. Open the pull request: {compare_url}"
+    design_no_changes: "⚠️ The designer agent finished without pushing a design. Its summary is in the run: {run_url}"
+    design_pr_title: "Design #{number} {title}"
+    design_pr_body: |-
+      Designs #{number}
+
+      Designed by the designer agent: {run_url}
+      Merging makes #{number} ready for development.
+    design_done: "📐 Design merged in {pr_url}. Ready for development: add `{trigger}` to start the developer agent."
+    design_skipped: "⏭️ Design step skipped. Ready for development: add `{trigger}` to start the developer agent."
     dev_not_ready: "The developer agent only starts on issues labelled `{ready}`. Removed `{trigger}`."
     dev_started: "🛠️ Developer agent started on branch `{branch}`: {run_url}"
     dev_pr: "🛠️ Code ready for review: {pr_url}"

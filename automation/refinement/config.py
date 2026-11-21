@@ -13,6 +13,7 @@ ENV_OVERRIDES = {
     ("slack", "channel_id"): "SLACK_CHANNEL_ID",
     ("slack", "approver_id"): "SLACK_APPROVER_ID",
     ("claude", "model"): "CLAUDE_MODEL",
+    ("design", "model"): "DESIGN_CLAUDE_MODEL",
     ("delivery", "model"): "DEV_CLAUDE_MODEL",
     ("bugs", "investigator", "model"): "BUG_CLAUDE_MODEL",
 }

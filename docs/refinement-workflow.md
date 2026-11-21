@@ -25,12 +25,14 @@ the product's shared context (`specs/`) stays true as requirements are approved.
 ## States (GitHub labels)
 
 ```
-needs-refinement ──► in-refinement ──► spec-review ──► ready-for-dev
-                          │            (spec PR open)   (spec PR merged)
-                          └──► blocked
+needs-refinement ──► in-refinement ──► spec-review ──► ready-for-design ──► under-design ──► design-review ──► ready-for-dev
+                          │            (spec PR open)   (spec PR merged)    (`design` added)  (design PR open)  (design PR merged)
+                          └──► blocked                          └──── `skip-design` ─────────────────────────────────►┘
 ```
 
-An issue with no lasting decision to record goes from `in-refinement` straight to `ready-for-dev`.
+An issue with no lasting decision to record goes from `in-refinement` straight to `ready-for-design`.
+The design step (technical spec, HTML mockup, technical decisions) is described in
+[aisdlc.md](aisdlc.md#the-design-phase).
 
 ## Steps
 1. **Intake.** The PO opens an issue with the *Requirement* template (adds `needs-refinement`).
@@ -47,8 +49,9 @@ An issue with no lasting decision to record goes from `in-refinement` straight t
 7. **Write-back + spec PR.** The issue body becomes the final requirement; the spec changes and
    regenerated indexes are committed on `spec/issue-<n>` and a pull request is opened and
    announced in Slack (thread and channel) as a living spec update. Label: `spec-review`.
-8. **Merge → ready.** Merging the spec PR marks the issue `ready-for-dev` and tells the thread.
-   From then on, every agent sees the new behaviour in `specs/`.
+8. **Merge → ready for design.** Merging the spec PR marks the issue `ready-for-design` and tells
+   the thread. From then on, every agent sees the new behaviour in `specs/`. A person adds `design`
+   to start the designer agent, or `skip-design` to go straight to `ready-for-dev`.
 9. **Nudge / blocked.** A quiet thread gets a nudge, then `blocked`; a new reply resumes it.
 
 ## Keeping context small (scales to large repos)

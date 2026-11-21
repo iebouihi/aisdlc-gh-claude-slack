@@ -7,11 +7,12 @@ GitHub Actions run the workflow without anyone prompting Claude:
 | `refine-kickoff.yml` | An issue gets `needs-refinement` | Claude reads it, opens a thread in `#claude-app` with questions, labels it `in-refinement` |
 | `refine-sync.yml` | Every 10 min (or *Run workflow*) | Claude reads new replies: asks follow-ups, posts the 📋 proposal; after approval writes back the issue and opens the living spec PR (announced in Slack); nudges / marks `blocked` |
 | `tests.yml` | Push to automation, skills or config | Offline tests of the whole loop |
+| `design-agent.yml` | A person adds `design` (or `skip-design`) to a `ready-for-design` issue | The designer agent writes the technical spec, the HTML mockup and the technical decisions in `design/` and opens a PR, announced in Slack with a mockup link (`skip-design`: straight to `ready-for-dev`) |
 | `dev-agent.yml` | A person adds `implement` to a `ready-for-dev` issue | The developer agent (Claude Code GitHub Action) implements it in `app/` and opens a PR, announced in Slack |
 | `bug-flow.yml` | `need-fix` / `fix-approved` on a bug (type Bug or `bug` label) | Investigator posts the root-cause report (Slack: status only); after validation the developer agent opens the fix PR |
-| `claude.yml` | `@claude` in a PR or issue comment | The developer agent applies the requested change |
-| `pr-merged.yml` | A PR is merged | Spec PR → issue `ready-for-dev`; feature or fix PR → issue `done` and closed |
-| `app-ci.yml` | Every PR, and pushes to `app/` | Typecheck, tests, build; agent PRs (`dev/`, `fix/`) must change only `app/` |
+| `claude.yml` | `@claude` in a PR or issue comment | The designer agent (on `design/` PRs) or the developer agent applies the requested change |
+| `pr-merged.yml` | A PR is merged | Spec PR → issue `ready-for-design`; design PR → `ready-for-dev`; feature or fix PR → issue `done` and closed |
+| `app-ci.yml` | Every PR, and pushes to `app/` | Typecheck, tests, build; agent PRs must stay in their folder (`dev/`, `fix/` → `app/`; `design/` → `design/`) |
 
 Claude's instructions: the agents in `.claude/agents/` and their skills in `.claude/skills/`.
 Settings and texts: `config/refinement.yml`. Plumbing: `automation/refinement/`.
@@ -54,7 +55,11 @@ link in Slack instead.
 Install <https://github.com/apps/claude> on this repository. The developer agent's workflows
 authenticate as this app, so it can push branches and open pull requests, and CI runs on its
 commits. It uses the same `ANTHROPIC_API_KEY` secret. Optional: a `DEV_CLAUDE_MODEL` repo
-variable overrides `delivery.model` in the config.
+variable overrides `delivery.model`, and `DESIGN_CLAUDE_MODEL` overrides `design.model` (the
+designer agent runs through the same app).
+
+Mockup links in Slack use `design.preview_url` (htmlpreview.github.io, public repos). For a
+private repo, point it at your own preview (e.g. GitHub Pages or the Vercel preview).
 
 ## Check it works
 1. Open a new issue with the **Requirement** template (it adds `needs-refinement`).
@@ -63,10 +68,14 @@ variable overrides `delivery.model` in the config.
    (or go to **Actions → Refinement sync → Run workflow** to skip the wait).
 4. As the approver, react ✅ or reply "approved" → after the next sync the issue body is
    rewritten, a living spec PR is opened and announced in Slack, and the issue is `spec-review`.
-5. Merge the PR → the issue becomes `ready-for-dev` and `specs/` holds the new decisions.
-6. Add the `implement` label → within a few minutes the developer agent opens a PR (announced
+5. Merge the PR → the issue becomes `ready-for-design` and `specs/` holds the new decisions.
+6. Add the `design` label → within a few minutes the designer agent opens a design PR with
+   `design/issue-<n>/technical-spec.md`, `mockup.html` and an updated `design/TECHNICAL-DECISIONS.md`
+   (announced in Slack with a mockup link); the issue is `design-review`. Merge it → `ready-for-dev`.
+   (Or add `skip-design` to go straight to `ready-for-dev`.)
+7. Add the `implement` label → within a few minutes the developer agent opens a PR (announced
    in Slack) and the issue is `in-review`. Comment `@claude …` on the PR to ask for changes.
-7. Merge it → the issue is `done` and closed.
+8. Merge it → the issue is `done` and closed.
 
 Bug fix: open a **Bug report** (type Bug + `bug` label), add `need-fix` → Slack says it's being analyzed and
 the root-cause report appears on the issue (`fix-proposed`). Add `fix-approved` → the fix PR

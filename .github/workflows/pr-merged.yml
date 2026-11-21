@@ -1,6 +1,7 @@
 name: PR merged
 
-# A merged living spec PR (config specs.branch_prefix) -> issue ready-for-dev.
+# A merged living spec PR (config specs.branch_prefix) -> issue ready-for-design.
+# A merged design PR (config design.branch_prefix) -> issue ready-for-dev.
 # A merged developer PR (config delivery.branch_prefix) -> issue done and closed.
 # Any other merged PR: the run exits at once.
 on:

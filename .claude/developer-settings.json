@@ -29,6 +29,8 @@
       "Write(automation/**)",
       "Edit(docs/**)",
       "Write(docs/**)",
+      "Edit(design/**)",
+      "Write(design/**)",
       "Edit(CLAUDE.md)",
       "Write(CLAUDE.md)",
       "Bash(git push --force *)",
