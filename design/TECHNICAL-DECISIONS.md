@@ -1,6 +1,6 @@
 ---
 updated: 2026-11-21
-issues: [53]
+issues: [53, 61]
 ---
 
 # good-habit-tracker: technical decisions
@@ -39,9 +39,13 @@ code is: `app/ARCHITECTURE.md`. _How a feature is built_: its design in `design/
 | TD10 | "Scheduled and active on date X" = `todayStatus(habit, X) === "checkable"`, also for past dates | one rule for schedule logic | domain | #53 |
 | TD11 | Correlation insights are pure functions in `src/lib/mood.ts`; thresholds (7 days, 3 / 3, 0.2) are named constants | testable without rendering, one place to change | domain | #53 |
 | TD12 | Every acceptance criterion with a user-visible result gets a Playwright test in `app/e2e/features/issue-<n>.spec.ts`; the regression suite only grows, and an existing test changes only for a `changes` row of the issue's impact section | regressions caught before merge | testing | test phase |
+| TD13 | The Week view's selected window is its end date (`string`, or `null` = current) in `WeekView` state; `null` or a date `>= today` means the current window | current follows `today` across midnight, a chosen past window never moves | state | #61 |
+| TD14 | The Week "Previous" limit is the window containing the earliest habit `createdAt` (local date) or check-in date, computed on render by `earliestDate()` in `week.ts` | no stored data (TD1) | domain | #61 |
+| TD15 | Window changes are announced by an `aria-live="polite"` range label; disabled buttons differ by dashed border and muted text, not colour alone | accessibility | UI | #61 |
 
 ## Designs
 
 | Issue | Technical spec | Mockup |
 |---|---|---|
 | #53 Mood correlation | [technical-spec](issue-53/technical-spec.md) | [mockup](issue-53/mockup.html) |
+| #61 Week navigation | [technical-spec](issue-61/technical-spec.md) | [mockup](issue-61/mockup.html) |
