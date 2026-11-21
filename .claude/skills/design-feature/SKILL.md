@@ -13,7 +13,9 @@ If no branch was given, use `design/issue-$issue`. Write only under `design/`.
 
 ## 1. Understand
 - `gh issue view $issue --comments`: the body is the **approved final requirement**. Note every
-  decision, acceptance criterion (AC1, AC2, …) and what is out of scope.
+  decision, acceptance criterion (AC1, AC2, …), what is out of scope, and the
+  **"Impact on existing features"** table: which existing features change (design those changes
+  too, in the spec and the mockup) and which must keep working (design around them).
 - Read `specs/README.md`, then the living specs listed in the issue's "Living spec" section.
 - Read `design/TECHNICAL-DECISIONS.md` (technical choices already made, `TD<n>`) and
   `app/ARCHITECTURE.md` (modules, conventions, `A<n>` decisions).
@@ -70,6 +72,14 @@ Designs #$issue (merging makes it ready for development)
 - If `gh pr create` fails, leave the branch pushed; the automation opens or links it.
 
 ## Changing an existing design PR (review feedback)
-When a reviewer asks for changes with `@claude`, apply only what they asked, keep the spec, the
-mockup and `TECHNICAL-DECISIONS.md` consistent with each other, push to the same branch, and
-reply with what changed.
+Feedback arrives two ways: a reviewer writes `@claude …` on the pull request, or the team
+mentions @Claude in the issue's Slack thread and the automation posts those remarks on the issue
+as a "Design remarks from Slack" comment (the latest one is the one to apply).
+- Check out the existing branch; don't start a new design. Apply only what was asked.
+- Keep the spec, the mockup and `TECHNICAL-DECISIONS.md` consistent with each other; bump
+  `updated:` in the spec.
+- A remark that contradicts the approved requirement or a spec decision is not applied: list it
+  under "Open questions" in the spec and explain it in your summary (behaviour changes go through
+  refinement).
+- Commit (`Design #$issue: <what changed>`), push to the same branch, and end with a short summary
+  of what changed per remark; the automation reports it in Slack.

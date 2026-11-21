@@ -6,12 +6,23 @@ name: Designer agent
 #                        design/, and opens a pull request for human review
 #   skip-design label -> the issue goes straight to ready-for-dev
 # Any other label: the run stops after the first step.
+# workflow_dispatch (mode revise) is started by the sync job when people post review remarks
+# mentioning Claude in the issue's Slack thread: the designer updates the same design PR.
 on:
   issues:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number
+        required: true
+      mode:
+        description: "revise: apply the Slack remarks posted on the issue"
+        required: true
+        default: revise
 
 concurrency:
-  group: design-issue-${{ github.event.issue.number }}
+  group: design-issue-${{ github.event.issue.number || inputs.issue }}
   cancel-in-progress: false
 
 permissions:
@@ -28,6 +39,8 @@ jobs:
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       LABEL: ${{ github.event.label.name }}
+      ISSUE: ${{ github.event.issue.number || inputs.issue }}
+      MODE: ${{ inputs.mode }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
       SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
@@ -41,9 +54,14 @@ jobs:
           python-version: "3.12"
       - run: pip install -r automation/requirements.txt
 
-      - name: Decide and prepare (ready? design or skip? labels, Slack)
+      - name: Decide and prepare (ready? design, skip or revise? labels, Slack)
         id: start
-        run: python -m automation.refinement design-start ${{ github.event.issue.number }} "$LABEL" "$RUN_URL"
+        run: |
+          if [ "$MODE" = "revise" ]; then
+            python -m automation.refinement design-revise "$ISSUE" "$RUN_URL"
+          else
+            python -m automation.refinement design-start "$ISSUE" "$LABEL" "$RUN_URL"
+          fi
 
       - name: Designer agent designs the issue
         if: steps.start.outputs.go == 'true'
@@ -56,4 +74,11 @@ jobs:
 
       - name: Report the design pull request (GitHub, Slack)
         if: always() && steps.start.outputs.go == 'true'
-        run: python -m automation.refinement design-finish ${{ github.event.issue.number }} "$RUN_URL"
+        env:
+          BEFORE: ${{ steps.start.outputs.before }}
+        run: |
+          if [ "$MODE" = "revise" ]; then
+            python -m automation.refinement design-finish "$ISSUE" "$RUN_URL" revise "$BEFORE"
+          else
+            python -m automation.refinement design-finish "$ISSUE" "$RUN_URL"
+          fi

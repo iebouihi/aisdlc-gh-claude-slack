@@ -15,7 +15,10 @@ A spec is relevant when the requirement:
 - uses or changes one of its **entities** (same data, same storage),
 - extends or alters its **behaviour** or a flow it owns,
 - could **contradict** one of its decisions (limits, validation, ordering, storage, UX rules),
-- depends on it to work (e.g. check-ins need the habit `id` defined elsewhere).
+- depends on it to work (e.g. check-ins need the habit `id` defined elsewhere),
+- **shares a screen, stored data or computed values with it**, so that feature could change or
+  regress even if the issue doesn't name it (e.g. a new Today-view section next to check-ins).
+  These specs feed the requirement's "Impact on existing features" section.
 
 Same words are a hint, not proof; match on meaning. Choose none if nothing applies.
 

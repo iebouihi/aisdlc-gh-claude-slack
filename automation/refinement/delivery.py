@@ -94,7 +94,7 @@ class Delivery(Refinement):
                 self.comment(n, g[f"{kind}_branch"].format(compare_url=compare, **fields))
                 self.swap_label(n, remove=[active], add=[review])
                 self.notify(n, s[f"{kind}_branch"].format(compare_url=compare, **fields), broadcast=True)
-                return
+                return {"review": "true"}
         if prs:
             pr = prs[0]
             self.comment(n, g[f"{kind}_pr"].format(pr_url=pr["html_url"]))
@@ -102,11 +102,12 @@ class Delivery(Refinement):
             self.notify(n, s[f"{kind}_pr"].format(pr_url=pr["html_url"], pr_number=pr["number"], **fields),
                         broadcast=True)
             self.log(f"#{n}: in review, PR #{pr['number']}")
-            return
+            return {"review": "true"}
         self.comment(n, g[f"{kind}_no_changes"].format(**fields))
         self.swap_label(n, remove=[active], add=[fallback])
         self.notify(n, s[f"{kind}_no_changes"].format(**fields))
         self.log(f"#{n}: agent pushed no code")
+        return {"review": "false"}
 
     # ---------- merged ----------
 
@@ -158,7 +159,8 @@ class Delivery(Refinement):
         prefix, kind = match
         n = int(ref[len(prefix):])
         issue = self.gh("GET", f"/issues/{n}")
-        self.swap_label(n, remove=[self.dl["review"], self.dl["active"]], add=[self.dl["done"]])
+        self.swap_label(n, remove=[self.dl["review"], self.dl["active"], self.tz["labels"]["active"],
+                                   self.tz["labels"]["review"]], add=[self.dl["done"]])
         self.comment(n, self.gh_text[f"{kind}_done"].format(pr_url=pr["html_url"]))
         if issue["state"] == "open":
             self.gh("PATCH", f"/issues/{n}", json={"state": "closed", "state_reason": "completed"})

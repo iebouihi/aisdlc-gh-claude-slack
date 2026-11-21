@@ -22,9 +22,13 @@ argument-hint: [issue-number]
 2. Look for conflicts: two people giving different answers, an answer that contradicts another
    decision or the issue, or one that changes a **living spec decision** nobody explicitly agreed
    to change. Changing an existing decision needs an explicit yes in the thread.
-3. If a proposal was already posted and someone asks for a change, apply the change if it is
+3. Check the **impact on existing features**: for each related living spec, will the change alter
+   its behaviour (`changes`) or must it stay exactly as it is (`keeps working`)? If a change to an
+   existing feature is implied but nobody agreed to it, or it is unclear whether an existing
+   behaviour should change, ask about it in a follow-up before proposing.
+4. If a proposal was already posted and someone asks for a change, apply the change if it is
    clear; ask only if it is ambiguous.
-4. Pick one action:
+5. Pick one action:
    - `wait`: the latest replies need nothing from you (e.g. people are still discussing).
    - `follow_up`: something is unanswered, conflicting or ambiguous. Ask only about that,
      numbered, each with a suggested resolution. Name the people whose answers conflict.
@@ -34,6 +38,9 @@ argument-hint: [issue-number]
 - `final_requirement`: the new issue body, in the exact format of the `requirement-format`
   skill, in GitHub Markdown. Every decision cites who made it ("Imad (accepted default)").
   The Refinement trace links the thread and says `Approved by: (pending)`.
+  Fill **Impact on existing features** for every related spec you were given, following the
+  requirement-format rules: `changes` rows with their AC and superseded decision, `keeps
+  working` rows with what must not change (and a regression AC for the important ones).
 - `spec_updates`: the living specs after this change, following the `living-spec` skill:
   the **full new content** of every capability spec to create or edit, each wrapped as
 
@@ -46,7 +53,9 @@ argument-hint: [issue-number]
   Edit existing specs in place (keep decision IDs, supersede changed ones, add a History line);
   create a new spec only for a new capability. Only important, lasting decisions go in specs.
 - `slack_message`: the proposal for Slack, in Slack mrkdwn and compact (decisions and
-  acceptance criteria as `•` bullets), ending with a short *Living spec changes* section:
+  acceptance criteria as `•` bullets), then a short *Impact on existing features* section
+  (`• habits/weekly-overview: changes - …`, `• habits/habit-streaks: keeps working`), ending
+  with a short *Living spec changes* section:
   which spec files are created or edited, and every existing decision that changes
   ("`habits/habit-management` D3: unique names → duplicates allowed"). Do **not** add a title
   line or an "approve" prompt; the automation adds those.

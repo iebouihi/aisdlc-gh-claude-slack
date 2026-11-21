@@ -14,11 +14,15 @@ and a short list of numbered questions they can answer with "3: yes" or accept w
 1. Read the issue: title, body, and any constraints it states. Read the **related living specs**
    you are given (chosen by `impact-analysis`): they describe how the product works today.
 2. Restate it in one short paragraph: who needs what, and why. Keep the issue's own constraints.
-   Mention which existing capabilities it builds on, if any.
+   Mention which existing capabilities it builds on, and which existing features it is likely to
+   **change** or must **leave unchanged** (they share a screen, stored data or computed values).
 3. Don't ask what a related spec already decides; treat it as given and build on it.
    If the issue **contradicts or changes** a spec decision, ask about it explicitly, quoting it:
    "This changes `habits/habit-management` D3 (names are unique). Change it, or keep it?"
    Put these questions first, in the group they belong to.
+   When it is unclear whether an existing feature should change because of the new behaviour
+   (e.g. "Should the Week view also show moods, or stay as it is?"), ask it too, with "stays as it
+   is" as the default unless the issue asks otherwise.
 4. Find what is unclear or missing for a developer and a tester. Look at each question group
    (listed in `config/refinement.yml` under `refinement.question_groups`), for example scope
    boundaries, edge cases and validation, data stored, empty and error states, accessibility,

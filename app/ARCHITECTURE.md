@@ -15,6 +15,9 @@ _What_ the product does lives in `specs/`; this file says _where_ and _how_ it i
   no API routes, no server actions. Everything runs in the browser.
 - React, TypeScript (strict). No state library; React state and small custom hooks.
 - Tests: Vitest + Testing Library (jsdom). `npm run check` = lint + typecheck + tests + build.
+- End-to-end: Playwright (`playwright.config.ts`, `e2e/`) on the static export served by
+  `e2e/support/serve.mjs`, desktop + mobile projects, axe accessibility checks
+  (`@axe-core/playwright`). `npm run build && npm run e2e`; CI job `e2e`. Dev dependencies only.
 - Tooling: ESLint (`eslint-config-next`), Prettier (`npm run format`), Node 26 (`.nvmrc` = `26`, `engines.node` = `26.x`).
 - Styling: a design-token stylesheet (`src/app/tokens.css`: colours, spacing, type, radius; light
   only, one accent) imported by `src/app/globals.css`, plus CSS Modules per page/component
@@ -22,11 +25,12 @@ _What_ the product does lives in `specs/`; this file says _where_ and _how_ it i
 
 ## Structure
 
-| Path              | What lives there                                                     |
-| ----------------- | -------------------------------------------------------------------- |
-| `src/app/`        | routes (`page.tsx`), the root layout and global styles               |
-| `src/components/` | UI components, one per file (`HabitList.tsx`), with a colocated test |
-| `src/lib/`        | domain logic as pure functions and the storage adapter; no React     |
+| Path              | What lives there                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `src/app/`        | routes (`page.tsx`), the root layout and global styles                                                       |
+| `src/components/` | UI components, one per file (`HabitList.tsx`), with a colocated test                                         |
+| `src/lib/`        | domain logic as pure functions and the storage adapter; no React                                             |
+| `e2e/`            | Playwright tests: `regression/` (core journeys), `features/issue-<n>.spec.ts`, `support/` (fixtures, server) |
 
 ## Modules
 
@@ -98,10 +102,11 @@ _What_ the product does lives in `specs/`; this file says _where_ and _how_ it i
 
 ## Decisions
 
-| ID  | Decision                                                                                                                                         | Since      |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| A1  | Static export; no backend                                                                                                                        | foundation |
-| A2  | Domain logic pure in `src/lib/`, storage behind one adapter                                                                                      | foundation |
-| A3  | Vitest + Testing Library; tests named after acceptance criteria                                                                                  | foundation |
-| A4  | TypeScript 5.9 (strict) until Next.js supports the native TypeScript 7 compiler                                                                  | foundation |
-| A5  | One Node version (26) everywhere: `.nvmrc`, `engines`, CI, Vercel. Vercel deploys `main` and PR previews with default settings; no `vercel.json` | #12        |
+| ID  | Decision                                                                                                                                                | Since      |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| A1  | Static export; no backend                                                                                                                               | foundation |
+| A2  | Domain logic pure in `src/lib/`, storage behind one adapter                                                                                             | foundation |
+| A3  | Vitest + Testing Library; tests named after acceptance criteria                                                                                         | foundation |
+| A4  | TypeScript 5.9 (strict) until Next.js supports the native TypeScript 7 compiler                                                                         | foundation |
+| A5  | One Node version (26) everywhere: `.nvmrc`, `engines`, CI, Vercel. Vercel deploys `main` and PR previews with default settings; no `vercel.json`        | #12        |
+| A6  | Playwright for end-to-end and regression tests (user-facing locators, AC-named, seeded storage via the `app` fixture); supersedes "no end-to-end tests" | test phase |

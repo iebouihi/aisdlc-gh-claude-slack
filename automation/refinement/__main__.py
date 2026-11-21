@@ -2,7 +2,11 @@
   python -m automation.refinement kickoff <issue_number>      open the Slack thread for a labelled issue
   python -m automation.refinement sync                        follow every thread in refinement
   python -m automation.refinement design-start <issue> <label> <run_url>  design or skip-design?
-  python -m automation.refinement design-finish <issue> <run_url>  report the designer's pull request
+  python -m automation.refinement design-finish <issue> <run_url> [revise <before_sha>]  report the design PR
+  python -m automation.refinement design-revise <issue> <run_url>  prepare a designer run on Slack remarks
+  python -m automation.refinement design-remarks              send new Slack remarks on open designs to the designer
+  python -m automation.refinement test-start <issue> <label|""> <run_url>  test phase: test, re-test or qa-approved?
+  python -m automation.refinement test-finish <issue> <run_url>  post the test report (issue, PR, Slack, QA status)
   python -m automation.refinement dev-start <issue> <run_url> decide and prepare a developer agent run
   python -m automation.refinement dev-finish <issue> <run_url> report the agent's pull request
   python -m automation.refinement agent-args [branch]         agent CLI args for @claude runs (designer on design branches)
@@ -24,6 +28,7 @@ from .bugs import BugFix
 from .delivery import Delivery
 from .design import Design
 from .engine import Refinement
+from .testing import Testing
 
 SECRETS = ("GITHUB_TOKEN", "SLACK_BOT_TOKEN", "ANTHROPIC_API_KEY")
 DELIVERY_SECRETS = ("GITHUB_TOKEN", "SLACK_BOT_TOKEN")
@@ -43,6 +48,10 @@ def delivery(cfg):
 
 def design(cfg):
     return Design(cfg, GitHub(cfg["github"]["repo"]), Slack())
+
+
+def testing(cfg):
+    return Testing(cfg, GitHub(cfg["github"]["repo"]), Slack())
 
 
 def bugfix(cfg):
@@ -95,9 +104,21 @@ def main(argv):
     if argv[:1] == ["agent-args"] and len(argv) <= 2:
         return write_outputs(Design(cfg, None, None).agent_for_branch((argv[1:] or [""])[0]))
     if argv[:1] in (["dev-start"], ["dev-finish"], ["pr-merged"], ["spec-merged"], ["bug-start"], ["bug-finish"],
-                    ["design-start"], ["design-finish"]):
+                    ["design-start"], ["design-finish"], ["design-revise"], ["design-remarks"],
+                    ["test-start"], ["test-finish"]):
         if missing(DELIVERY_SECRETS):
-            return write_outputs({"go": "false"}) if argv[0] in ("dev-start", "bug-start", "design-start") else None
+            return write_outputs({"go": "false"}) if argv[0] in ("dev-start", "bug-start", "design-start",
+                                                                 "design-revise", "test-start") else None
+        if argv[0] == "test-start" and len(argv) == 4:
+            return write_outputs(testing(cfg).test_start(int(argv[1]), argv[2], argv[3]))
+        if argv[0] == "test-finish" and len(argv) == 3:
+            return testing(cfg).test_finish(int(argv[1]), argv[2])
+        if argv == ["design-remarks"]:
+            return design(cfg).remarks()
+        if argv[0] == "design-revise" and len(argv) == 3:
+            return write_outputs(design(cfg).revise_start(int(argv[1]), argv[2]))
+        if argv[0] == "design-finish" and len(argv) == 5 and argv[3] == "revise":
+            return design(cfg).revise_finish(int(argv[1]), argv[2], argv[4])
         if argv[0] == "design-start" and len(argv) == 4:
             return write_outputs(design(cfg).design_start(int(argv[1]), argv[2], argv[3]))
         if argv[0] == "design-finish" and len(argv) == 3:
@@ -105,11 +126,11 @@ def main(argv):
         if argv[0] == "bug-start" and len(argv) == 4:
             return write_outputs(bugfix(cfg).bug_start(int(argv[1]), argv[2], argv[3]))
         if argv[0] == "bug-finish" and len(argv) == 4:
-            return bugfix(cfg).bug_finish(int(argv[1]), argv[2], argv[3])
+            return write_outputs(bugfix(cfg).bug_finish(int(argv[1]), argv[2], argv[3]) or {"review": "false"})
         if argv[0] == "dev-start" and len(argv) == 3:
             return write_outputs(delivery(cfg).start(int(argv[1]), argv[2]))
         if argv[0] == "dev-finish" and len(argv) == 3:
-            return delivery(cfg).finish(int(argv[1]), argv[2])
+            return write_outputs(delivery(cfg).finish(int(argv[1]), argv[2]))
         if argv[0] in ("pr-merged", "spec-merged") and len(argv) == 2:
             return bugfix(cfg).pr_merged(int(argv[1]))  # handles spec, feature and fix PRs
         sys.exit(__doc__)

@@ -1,10 +1,11 @@
 # AI-integrated SDLC: how this repo works
 
 This repository is a working model of an AI-integrated software lifecycle for a small product,
-*good-habit-tracker*. Four flows run today: **requirements** (refine, approve, update the
-living specs), **design** (technical spec and HTML mockup, review, merge), **delivery**
-(implement, review, merge) and **bug fixes** (investigate the root cause, validate, fix, review,
-merge). Agents do the drafting and the
+*good-habit-tracker*. Five flows run today: **requirements** (refine, approve, update the
+living specs, state the impact on existing features), **design** (technical spec and HTML
+mockup, review, merge), **delivery** (implement, review, merge), **test** (end-to-end and
+regression tests, QA approval) and **bug fixes** (investigate the root cause, validate, fix,
+test, review, merge). Agents do the drafting and the
 bookkeeping; people make every decision. Four ideas carry the whole design.
 
 ---
@@ -29,7 +30,9 @@ accountability. So every step has a clear owner, and every decision passes a hum
 | Design | writes the technical spec and the HTML mockup, updates the technical decisions, opens a PR | |
 | **Design review gate** | answers `@claude …` change requests on the PR | **team reviews and merges** → `ready-for-dev` |
 | **Start gate** | | **a person adds `implement`** |
-| Implementation | implements in `app/`, tests every acceptance criterion, updates the code map, opens a PR | |
+| Implementation | implements in `app/`, updates the impacted existing features and their tests, tests every acceptance criterion, updates the code map, opens a PR | |
+| Test | writes Playwright tests per AC, runs the regression suite (desktop, mobile, accessibility), explores, posts a report, sets the `QA` status | |
+| **QA gate** | | **a person approves with `qa-approved`** |
 | **Code review gate** | answers `@claude …` change requests on the PR | **team reviews and merges** |
 | Done | closes the issue, tells the Slack thread | |
 
@@ -175,7 +178,7 @@ flowchart TD
     W --> P["Design PR opened<br/>announced in Slack with a mockup link<br/>label: design-review"]
     P --> G["CI: changes only in design/"]
     G --> V{"Team reviews"}
-    V -- "@claude change request" --> F["Designer applies the change<br/>pushes to the same PR"]
+    V -- "@claude on the PR, or<br/>@Claude remarks in the Slack thread" --> F["Designer applies the remarks<br/>pushes to the same PR<br/>Slack: design updated"]
     F --> G
     V -- "merged" --> D["Issue ready-for-dev<br/>design + technical decisions<br/>are context for the developer"]
     S -. "blocked or nothing pushed" .-> X["Back to ready-for-design<br/>reason in the run"]
@@ -187,6 +190,12 @@ flowchart TD
     class S,B,W,P,F,X,G agent
     class R,D truth
 ```
+
+Review remarks can come from Slack: during `design-review`, a reply in the issue's thread that
+mentions @Claude is collected by the sync job (every few minutes), posted on the issue as
+"Design remarks from Slack" (who said what, with a link), and the designer runs again on the same
+branch. The thread then hears "Design updated" with the PR and mockup links. Plain discussion
+without a mention is left alone, and each remark is handled once.
 
 | Input | Output | Living context updated |
 |---|---|---|
@@ -202,7 +211,9 @@ flowchart TD
     B --> C{"npm run check<br/>passes?"}
     C -- "no" --> B
     C -- "yes" --> P["Pull request opened<br/>announced in Slack<br/>label: in-review"]
-    P --> G["CI: typecheck, tests, build,<br/>changes only in app/"]
+    P --> Q["Test phase: tester agent<br/>Playwright tests per AC, regression suite,<br/>exploration, report<br/>label: in-test → test-review"]
+    Q --> A{"A person approves<br/>label: qa-approved<br/>QA status ✓"}
+    A --> G["CI: typecheck, tests, build, e2e,<br/>changes only in app/"]
     G --> V{"Team reviews"}
     V -- "@claude change request" --> F["Agent applies the change<br/>pushes to the same PR"]
     F --> G
@@ -212,10 +223,43 @@ flowchart TD
     classDef human fill:#fde68a,stroke:#b45309,color:#1f2937
     classDef agent fill:#bfdbfe,stroke:#1d4ed8,color:#1f2937
     classDef truth fill:#bbf7d0,stroke:#15803d,color:#1f2937
-    class T,V human
-    class S,B,C,P,F,X,G agent
+    class T,V,A human
+    class S,B,C,P,F,X,G,Q agent
     class R,D truth
 ```
+
+## The test phase
+
+Right after the developer agent opens a pull request (a feature or a bug fix), the **tester
+agent** checks it in a real browser before people review and merge:
+
+1. **Acceptance tests**: one Playwright test per acceptance criterion with a user-visible
+   result, named `AC3 (#n): …`, in `app/e2e/features/issue-<n>.spec.ts`, pushed to the PR.
+2. **Regression suite**: every end-to-end test ever written (`app/e2e/`) plus the unit tests,
+   on desktop and mobile, with axe accessibility checks. A failing existing test is a regression
+   unless the requirement's "Impact on existing features" says that behaviour changes.
+3. **Exploration**: a short session on the feature and its impacted neighbours (edge inputs,
+   keyboard only, 320px, reload, corrupted data).
+4. **Report** on the issue, on the PR and in Slack: AC coverage, regressions, accessibility,
+   findings, and a verdict. The `QA` commit status is pending (pass) or failure.
+5. **QA gate**: a person adds `qa-approved`; the `QA` status turns green and the PR can be
+   merged. Make `QA` a required status check in branch protection to enforce it. Changes pushed
+   after approval need a new run: add `test`.
+
+CI also runs the whole Playwright suite on every pull request (`app-ci.yml`, job `e2e`), so
+the regression suite protects every change, not only agent ones.
+
+## Impact on existing features
+
+Refinement states, for every related living spec, whether the new requirement **changes** an
+existing feature (with the AC that defines the new behaviour and the superseded decision) or
+whether it must **keep working** (regression scope). That table in the issue drives the rest:
+
+| Agent | Uses the impact table to |
+|---|---|
+| designer | design the changes to existing features too (spec and mockup), and design around the rest |
+| developer | update the impacted features and the existing tests that assert old behaviour; leave the rest untouched |
+| tester | treat changed tests as intended, and every other failing test as a regression |
 
 ## The bug-fix flow
 
@@ -267,5 +311,5 @@ approves, and the result updates the context for the next phase.
 | Requirements (this repo) | questions, final requirement, spec changes | approval + spec PR | `specs/` |
 | Design (this repo) | technical spec, HTML mockup, technical decisions | start label + design review | `design/TECHNICAL-DECISIONS.md`, `design/issue-<n>/` |
 | Build (this repo) | code and tests from the spec and acceptance criteria | start label + code review | code, tests linked to AC IDs, code map |
-| Test | test cases from acceptance criteria, results | QA sign-off | coverage per AC |
+| Test (this repo) | Playwright tests per AC, regression run, exploration, report | `qa-approved` | regression suite in `app/e2e/`, coverage per AC |
 | Release | release notes from merged specs and PRs | release approval | changelog |

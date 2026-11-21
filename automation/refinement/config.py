@@ -15,6 +15,7 @@ ENV_OVERRIDES = {
     ("claude", "model"): "CLAUDE_MODEL",
     ("design", "model"): "DESIGN_CLAUDE_MODEL",
     ("delivery", "model"): "DEV_CLAUDE_MODEL",
+    ("testing", "model"): "TEST_CLAUDE_MODEL",
     ("bugs", "investigator", "model"): "BUG_CLAUDE_MODEL",
 }
 

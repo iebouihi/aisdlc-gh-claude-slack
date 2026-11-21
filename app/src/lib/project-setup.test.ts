@@ -74,14 +74,22 @@ describe("project setup", () => {
     expect(css).not.toMatch(/prefers-color-scheme|color-scheme:[^;]*dark/);
   });
 
-  it("AC15 (#7): no deployment config and no end-to-end tests", () => {
+  it("AC15 (#7): no deployment config", () => {
     const names = readdirSync(root);
     expect(names).not.toContain("vercel.json");
     expect(names).not.toContain("netlify.toml");
     expect(names).not.toContain("Dockerfile");
-    expect(names.some((n) => /^(playwright|cypress)/.test(n))).toBe(false);
+  });
+
+  it("platform/app-foundation D16: end-to-end tests use Playwright only, as dev tooling", () => {
+    // supersedes D7's "no end-to-end tests"
+    expect(existsSync(join(root, "playwright.config.ts"))).toBe(true);
+    expect(existsSync(join(root, "e2e"))).toBe(true);
+    expect(pkg.devDependencies["@playwright/test"]).toBeTruthy();
+    expect(Object.keys(pkg.dependencies).join(" ")).not.toMatch(/playwright|axe/);
     expect(Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).join(" ")).not.toMatch(
-      /playwright|cypress/,
+      /cypress/,
     );
+    expect(pkg.scripts.e2e).toBe("playwright test");
   });
 });

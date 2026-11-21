@@ -19,8 +19,9 @@ code is: `app/ARCHITECTURE.md`. _How a feature is built_: its design in `design/
   per entity: `habits:v1`, `checkins:v1`, `badges:v1`, `profile:v1`, plus `mood:v1` once #53 is built.
 - **UI:** CSS Modules + design tokens (`src/app/tokens.css`); hand-built components, SVG charts
   and dialogs; no UI or chart library.
-- **Quality:** Vitest + Testing Library; tests named after acceptance criteria (A3);
-  `npm run check` in CI on every PR.
+- **Quality:** Vitest + Testing Library for units and components; Playwright for end-to-end and
+  regression (desktop + mobile, axe); all tests named after acceptance criteria (A3, A6);
+  `npm run check` and `npm run e2e` in CI on every PR.
 
 ## Decisions
 
@@ -37,6 +38,7 @@ code is: `app/ARCHITECTURE.md`. _How a feature is built_: its design in `design/
 | TD9 | The mood day is a day offset (0–5) in `HabitList` session state, mapped to a date with `today` | stays correct across midnight (TD5) | state | #53 |
 | TD10 | "Scheduled and active on date X" = `todayStatus(habit, X) === "checkable"`, also for past dates | one rule for schedule logic | domain | #53 |
 | TD11 | Correlation insights are pure functions in `src/lib/mood.ts`; thresholds (7 days, 3 / 3, 0.2) are named constants | testable without rendering, one place to change | domain | #53 |
+| TD12 | Every acceptance criterion with a user-visible result gets a Playwright test in `app/e2e/features/issue-<n>.spec.ts`; the regression suite only grows, and an existing test changes only for a `changes` row of the issue's impact section | regressions caught before merge | testing | test phase |
 
 ## Designs
 
