@@ -39,18 +39,18 @@ describe("HabitList weekly overview", () => {
     expect(screen.getByRole("heading", { name: "Week" })).toBeInTheDocument();
   });
 
-  it("AC2 (#4): 7 headed columns 26 Oct to 1 Nov with today marked", () => {
+  it("AC2 (#4) AC10 (#61): 7 headed columns 26 Oct to 1 Nov, month names, today marked", () => {
     seed([habit("1", "Run")]);
     renderView("Week");
     const heads = week().getAllByRole("columnheader").slice(1);
     expect(heads.map((h) => h.textContent)).toEqual([
-      "Mon 26",
+      "OctMon 26",
       "Tue 27",
       "Wed 28",
       "Thu 29",
       "Fri 30",
       "Sat 31",
-      "Sun 1Today",
+      "NovSun 1Today",
     ]);
     expect(heads[6]).toHaveAttribute("aria-current", "date");
   });
