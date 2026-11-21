@@ -347,6 +347,7 @@ messages:
     design_remark: "> **{name}:** {text}"
     design_updated: "📐 Design updated from the Slack remarks: {pr_url} (run: {run_url})"
     design_unchanged: "⚠️ The designer agent pushed no change for the Slack remarks. Its summary is in the run: {run_url}"
+    dev_needs_design: "Removed `{implement}`: this issue is `{ready}`, so the design comes first. Add `{design}` to start the designer agent, or `{skip}` to go straight to dev (then add `{implement}`)."
     dev_not_ready: "The developer agent only starts on issues labelled `{ready}`. Removed `{trigger}`."
     dev_started: "🛠️ Developer agent started on branch `{branch}`: {run_url}"
     dev_pr: "🛠️ Code ready for review: {pr_url}"

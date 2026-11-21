@@ -46,7 +46,12 @@ class Delivery(Refinement):
             return {"go": "false"}
         if self.labels["ready"] not in labels:
             self.swap_label(n, remove=[self.dl["trigger"]])
-            self.comment(n, g["dev_not_ready"].format(ready=self.labels["ready"], trigger=self.dl["trigger"]))
+            if self.labels["ready_design"] in labels:  # refined, but the design step comes first
+                self.comment(n, g["dev_needs_design"].format(
+                    ready=self.labels["ready_design"], implement=self.dl["trigger"],
+                    design=self.dz["labels"]["trigger"], skip=self.dz["labels"]["skip"]))
+            else:
+                self.comment(n, g["dev_not_ready"].format(ready=self.labels["ready"], trigger=self.dl["trigger"]))
             self.log(f"#{n}: not ready, agent not started")
             return {"go": "false"}
         branch = self.branch(n)
