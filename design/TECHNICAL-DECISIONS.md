@@ -1,6 +1,6 @@
 ---
 updated: 2026-11-21
-issues: []
+issues: [53]
 ---
 
 # good-habit-tracker: technical decisions
@@ -16,7 +16,7 @@ code is: `app/ARCHITECTURE.md`. _How a feature is built_: its design in `design/
 - **Layers:** pure domain functions in `src/lib/` → thin client components in `src/components/`
   → one page `src/app/page.tsx`. `HabitList` owns the data state and the current view (A2).
 - **Data:** browser `localStorage` behind one adapter (`src/lib/storage.ts`), one versioned key
-  per entity: `habits:v1`, `checkins:v1`, `badges:v1`, `profile:v1`.
+  per entity: `habits:v1`, `checkins:v1`, `badges:v1`, `profile:v1`, plus `mood:v1` once #53 is built.
 - **UI:** CSS Modules + design tokens (`src/app/tokens.css`); hand-built components, SVG charts
   and dialogs; no UI or chart library.
 - **Quality:** Vitest + Testing Library; tests named after acceptance criteria (A3);
@@ -34,9 +34,12 @@ code is: `app/ARCHITECTURE.md`. _How a feature is built_: its design in `design/
 | TD6 | Visuals are hand-built (SVG/CSS) with a visually hidden data table | no runtime dependency, accessible | UI | existing |
 | TD7 | Every UI value comes from design tokens; no colour literal outside `tokens.css` | one look, enforced by a test | UI | existing |
 | TD8 | Each designed feature has a technical spec and, when it has UI, a self-contained HTML mockup in `design/issue-<n>/`, merged before development starts | reviewable design, buildable without guessing | process | this file |
+| TD9 | The mood day is a day offset (0–5) in `HabitList` session state, mapped to a date with `today` | stays correct across midnight (TD5) | state | #53 |
+| TD10 | "Scheduled and active on date X" = `todayStatus(habit, X) === "checkable"`, also for past dates | one rule for schedule logic | domain | #53 |
+| TD11 | Correlation insights are pure functions in `src/lib/mood.ts`; thresholds (7 days, 3 / 3, 0.2) are named constants | testable without rendering, one place to change | domain | #53 |
 
 ## Designs
 
 | Issue | Technical spec | Mockup |
 |---|---|---|
-| (none yet) | | |
+| #53 Mood correlation | [technical-spec](issue-53/technical-spec.md) | [mockup](issue-53/mockup.html) |
