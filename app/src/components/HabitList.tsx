@@ -23,6 +23,16 @@ import { awardBadges, newBadgeIds, parseBadges, type Badge, type EarnedBadge } f
 import { latestBadge, parseProfile, welcomeText } from "@/lib/profile";
 import { iconEmoji } from "@/lib/icons";
 import {
+  clearMood,
+  insights,
+  MOOD_ERROR,
+  moodDays,
+  parseMood,
+  setMood,
+  type MoodEntry,
+  type MoodValue,
+} from "@/lib/mood";
+import {
   budgetStatus,
   draftFromMoney,
   emptyMoneyDraft,
@@ -48,6 +58,7 @@ import {
   BADGES_KEY,
   CHECKINS_KEY,
   HABITS_KEY,
+  MOOD_KEY,
   PROFILE_KEY,
   readJson,
   writeJson,
@@ -58,6 +69,8 @@ import { BudgetFields } from "./BudgetFields";
 import { DeleteDialog } from "./DeleteDialog";
 import { CategorySelect } from "./CategorySelect";
 import { IconPicker } from "./IconPicker";
+import { Insights } from "./Insights";
+import { MoodPicker } from "./MoodPicker";
 import { ProfileName } from "./ProfileName";
 import {
   ScheduleFields,
@@ -147,6 +160,10 @@ export function HabitList() {
   const [storageError, setStorageError] = useState(false);
   const [checkins, setCheckins] = useState<CheckIn[]>([]);
   const [checkinError, setCheckinError] = useState(false);
+  const [moods, setMoods] = useState<MoodEntry[]>([]);
+  const [moodError, setMoodError] = useState(false);
+  // Selected mood day as an offset from today (0-5); session only, so it follows midnight.
+  const [moodDay, setMoodDay] = useState(0);
   const [badges, setBadges] = useState<EarnedBadge[]>([]);
   const [badgeError, setBadgeError] = useState(false);
   const [profileName, setProfileName] = useState("");
@@ -200,6 +217,10 @@ export function HabitList() {
     const parsedCheckins = checkinResult.ok ? parseCheckins(checkinResult.value) : null;
     if (parsedCheckins === null) setCheckinError(true);
     else setCheckins(parsedCheckins);
+    const moodResult = readJson(MOOD_KEY);
+    const parsedMood = moodResult.ok ? parseMood(moodResult.value) : null;
+    if (parsedMood === null) setMoodError(true);
+    else setMoods(parsedMood);
     const now = toLocalDate(new Date());
     const badgeResult = readJson(BADGES_KEY);
     const parsedBadges = badgeResult.ok ? parseBadges(badgeResult.value) : null;
@@ -286,6 +307,11 @@ export function HabitList() {
   function persistCheckins(next: CheckIn[]) {
     setCheckins(next);
     setCheckinError(!writeJson(CHECKINS_KEY, next).ok);
+  }
+
+  function persistMoods(next: MoodEntry[]) {
+    setMoods(next);
+    setMoodError(!writeJson(MOOD_KEY, next).ok);
   }
 
   function saveProfileName(name: string) {
@@ -504,6 +530,12 @@ export function HabitList() {
         </p>
       )}
 
+      {moodError && !storageError && !checkinError && !badgeError && !profileError && (
+        <p role="alert" className={styles.storageError}>
+          {MOOD_ERROR}
+        </p>
+      )}
+
       {loaded && habits.length === 0 && view !== "week" && view !== "progress" && (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>No habits yet</p>
@@ -554,6 +586,19 @@ export function HabitList() {
         <p className={styles.todaySummary} aria-live="polite">
           {summary.done} of {summary.total} done today
         </p>
+      )}
+
+      {loaded && view === "today" && habits.length > 0 && today && (
+        <MoodPicker
+          days={moodDays(today)}
+          dayIndex={moodDay}
+          onDay={setMoodDay}
+          value={moods.find((m) => m.date === moodDays(today)[moodDay].date)?.value}
+          onSelect={(value: MoodValue) =>
+            persistMoods(setMood(moods, moodDays(today)[moodDay].date, value))
+          }
+          onClear={() => persistMoods(clearMood(moods, moodDays(today)[moodDay].date))}
+        />
       )}
 
       {loaded && view !== "week" && view !== "progress" && habits.length > 0 && (
@@ -737,6 +782,10 @@ export function HabitList() {
             onChartTypeChange={setChartType}
           />
         </section>
+      )}
+
+      {loaded && view === "today" && habits.length > 0 && today && (
+        <Insights result={insights(habits, checkins, moods)} />
       )}
 
       {loaded && view === "today" && (
