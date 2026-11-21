@@ -41,6 +41,22 @@ This repo runs the requirement refinement workflow for **good-habit-tracker**
 - The developer agent may change only `app/` (`.claude/developer-settings.json`, enforced again
   in CI). Specs change through refinement; workflows, skills and config through human PRs.
 
+## Test phase (app/e2e/)
+- When the developer agent opens a feature or fix PR, the `tester` agent (`test-feature` skill)
+  writes Playwright tests for every acceptance criterion (`app/e2e/features/issue-<n>.spec.ts`,
+  named `AC3 (#n): …`), runs the whole regression suite (`npm run build && npm run e2e`: desktop,
+  mobile, axe) and explores; its report goes on the issue, the PR and Slack (`test-review`).
+- A person approves with `qa-approved` (sets the `QA` commit status to success); `test` re-tests.
+- The tester may change only `app/e2e/**` and its report (`.claude/tester-settings.json`).
+- A failing existing test is a regression unless the issue's "Impact on existing features" says
+  that behaviour changes (`regression-guard`). Never weaken a test to make it pass.
+
+## Impact on existing features
+- Every final requirement has an "Impact on existing features" table (`requirement-format`):
+  `changes` rows (existing behaviour that changes, with an AC and the superseded decision) and
+  `keeps working` rows (regression scope). The designer designs it, the developer updates the
+  impacted features and their tests, the tester verifies both.
+
 ## Bugs
 - Bugs (issue type **Bug**, or the `bug` label: issue types can't be set on personal repos): `need-fix` starts the `bug-investigator` agent (root cause, no code
   changes, report format in `root-cause-report`); `fix-approved` (after validation) starts the

@@ -1,6 +1,6 @@
 ---
 name: requirement-format
-description: The exact format of a final, approved requirement (GitHub issue body) - summary, user story, decisions, Given/When/Then acceptance criteria, out of scope, risks and refinement trace. Use whenever writing or checking a final requirement.
+description: The exact format of a final, approved requirement (GitHub issue body) - summary, user story, decisions, Given/When/Then acceptance criteria, impact on existing features, out of scope, risks and refinement trace. Use whenever writing or checking a final requirement.
 ---
 
 # Final requirement format
@@ -23,6 +23,12 @@ As a <user>, I want <capability>, so that <benefit>.
 - [ ] **AC1** Given <context>, when <action>, then <observable result>.
 - [ ] **AC2** ...
 
+## Impact on existing features
+| Feature (living spec) | Impact | What changes / what must keep working | ACs · decisions |
+|---|---|---|---|
+| `habits/weekly-overview` | changes | Week cells also show the mood of the day | AC5 · D4 → D9 |
+| `habits/habit-streaks` | keeps working | streaks are counted exactly as before when moods are stored | AC7 |
+
 ## Out of scope
 - <what this issue explicitly does not cover>
 
@@ -44,3 +50,21 @@ As a <user>, I want <capability>, so that <benefit>.
 - Cover the happy path, validation errors, empty state, persistence and failure cases that the
   decisions imply.
 - `Approved by: (pending)` stays as written; the automation fills it in after approval.
+
+## Impact on existing features: rules
+This section tells the designer, the developer and the tester which existing features the change
+touches, so they update them on purpose and protect the rest. Fill it from the related living
+specs you were given and the thread.
+- One row per existing capability the change touches: it shares a screen, stored data, computed
+  values or a flow with the new behaviour. Use the spec id (`module/capability`).
+- **Impact** is one of:
+  - `changes`: existing behaviour changes. Say how, link the AC that defines the new behaviour,
+    and the spec decision superseded (`D4 → D9`). The developer updates that feature and the
+    existing tests that assert the old behaviour; the tester treats those tests as intended changes.
+  - `keeps working`: behaviour must stay exactly as it is (regression scope). Say what must not
+    change. For the important ones add a regression AC ("Given moods are stored, when … then the
+    streak is unchanged"), so it is tested on purpose.
+- Every `changes` row needs an explicit decision in the thread (changing an existing decision
+  needs a yes), an AC and a living spec update.
+- No existing feature affected: write "None: no existing feature is affected." and say why in
+  one line (e.g. a new, separate screen with its own data).

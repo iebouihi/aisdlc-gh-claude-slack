@@ -34,6 +34,12 @@ updated: <YYYY-MM-DD>
 | Habit domain | `src/lib/habits.ts` | add `foo(habit, today)`: pure, returns … |
 | Habit UI | `src/components/HabitList.tsx` | render `<Foo>` in the Today view |
 
+## Impact on existing features
+| Feature (spec) | Impact (from the issue) | Modules / components touched | Existing tests to update or keep |
+|---|---|---|---|
+| `habits/weekly-overview` | changes (AC5) | `WeekView.tsx`, `week.ts` | `WeekView.test.tsx` cell tests → AC5 |
+| `habits/habit-streaks` | keeps working | none (reads the same check-ins) | `streak.test.ts`, `e2e/regression` unchanged |
+
 ## Data and storage
 - <new key or optional field, type, example value; how old data is read; what is corrupted>
 - or: "No stored data; computed from …"
@@ -61,6 +67,8 @@ updated: <YYYY-MM-DD>
 
 Rules:
 - Every acceptance criterion from the issue appears in the traceability table.
+- Every row of the issue's "Impact on existing features" appears in the impact table, with the
+  code and the existing tests it touches; mark a mockup frame for each `changes` row with UI.
 - Name real files and functions from the code map; mark new ones as new.
 - Spec decisions are referenced by ID (`habits/habit-management` D3), never restated differently.
 - Code snippets only for signatures and data shapes, never full implementations.

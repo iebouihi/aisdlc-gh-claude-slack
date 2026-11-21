@@ -8,11 +8,12 @@ GitHub Actions run the workflow without anyone prompting Claude:
 | `refine-sync.yml` | Every 10 min (or *Run workflow*) | Claude reads new replies: asks follow-ups, posts the 📋 proposal; after approval writes back the issue and opens the living spec PR (announced in Slack); nudges / marks `blocked`. Then hands Slack remarks mentioning @Claude on open design PRs to the designer (needs `actions: write` to start `design-agent.yml`) |
 | `tests.yml` | Push to automation, skills or config | Offline tests of the whole loop |
 | `design-agent.yml` | A person adds `design` (or `skip-design`) to a `ready-for-design` issue; or the sync job, for Slack review remarks | The designer agent writes the technical spec, the HTML mockup and the technical decisions in `design/` and opens a PR, announced in Slack with a mockup link (`skip-design`: straight to `ready-for-dev`) |
-| `dev-agent.yml` | A person adds `implement` to a `ready-for-dev` issue | The developer agent (Claude Code GitHub Action) implements it in `app/` and opens a PR, announced in Slack |
+| `dev-agent.yml` | A person adds `implement` to a `ready-for-dev` issue | The developer agent (Claude Code GitHub Action) implements it in `app/` and opens a PR, announced in Slack; then calls `test-agent.yml` |
+| `test-agent.yml` | Called when a developer or fix PR opens; or a person adds `test` / `qa-approved` | The tester agent writes Playwright tests per AC, runs the regression suite, explores and posts a report (issue, PR, Slack) with the `QA` commit status; `qa-approved` sets it to success |
 | `bug-flow.yml` | `need-fix` / `fix-approved` on a bug (type Bug or `bug` label) | Investigator posts the root-cause report (Slack: status only); after validation the developer agent opens the fix PR |
 | `claude.yml` | `@claude` in a PR or issue comment | The designer agent (on `design/` PRs) or the developer agent applies the requested change |
 | `pr-merged.yml` | A PR is merged | Spec PR → issue `ready-for-design`; design PR → `ready-for-dev`; feature or fix PR → issue `done` and closed |
-| `app-ci.yml` | Every PR, and pushes to `app/` | Typecheck, tests, build; agent PRs must stay in their folder (`dev/`, `fix/` → `app/`; `design/` → `design/`) |
+| `app-ci.yml` | Every PR, and pushes to `app/` | Typecheck, tests, build, Playwright e2e suite; agent PRs must stay in their folder (`dev/`, `fix/` → `app/`; `design/` → `design/`) |
 
 Claude's instructions: the agents in `.claude/agents/` and their skills in `.claude/skills/`.
 Settings and texts: `config/refinement.yml`. Plumbing: `automation/refinement/`.
@@ -58,6 +59,14 @@ commits. It uses the same `ANTHROPIC_API_KEY` secret. Optional: a `DEV_CLAUDE_MO
 variable overrides `delivery.model`, and `DESIGN_CLAUDE_MODEL` overrides `design.model` (the
 designer agent runs through the same app).
 
+Optional: `TEST_CLAUDE_MODEL` overrides `testing.model` (the tester agent).
+
+### 6. Enforce the QA gate (recommended)
+Repo → **Settings → Branches → Branch protection rule** for `main` → **Require status checks to
+pass** → add `QA` (and `check`, `e2e`). Then a developer or fix PR can only be merged after a
+person adds `qa-approved`. Labels used by the test phase: `test`, `in-test`, `test-review`,
+`qa-approved` (created on first use; create `test` and `qa-approved` up front so people can add them).
+
 Mockup links in Slack use `design.preview_url` (htmlpreview.github.io, public repos). For a
 private repo, point it at your own preview (e.g. GitHub Pages or the Vercel preview).
 
@@ -75,7 +84,10 @@ private repo, point it at your own preview (e.g. GitHub Pages or the Vercel prev
    (Or add `skip-design` to go straight to `ready-for-dev`.)
 7. Add the `implement` label → within a few minutes the developer agent opens a PR (announced
    in Slack) and the issue is `in-review`. Comment `@claude …` on the PR to ask for changes.
-8. Merge it → the issue is `done` and closed.
+8. The tester agent starts by itself on that PR → the issue is `in-test`, then `test-review` with
+   the test report on the issue, the PR and in Slack. Add `qa-approved` → the `QA` status turns
+   green and the issue is `in-review`.
+9. Merge it → the issue is `done` and closed.
 
 Bug fix: open a **Bug report** (type Bug + `bug` label), add `need-fix` → Slack says it's being analyzed and
 the root-cause report appears on the issue (`fix-proposed`). Add `fix-approved` → the fix PR

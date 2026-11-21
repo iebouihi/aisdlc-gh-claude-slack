@@ -13,7 +13,9 @@ If no branch was given, use `design/issue-$issue`. Write only under `design/`.
 
 ## 1. Understand
 - `gh issue view $issue --comments`: the body is the **approved final requirement**. Note every
-  decision, acceptance criterion (AC1, AC2, …) and what is out of scope.
+  decision, acceptance criterion (AC1, AC2, …), what is out of scope, and the
+  **"Impact on existing features"** table: which existing features change (design those changes
+  too, in the spec and the mockup) and which must keep working (design around them).
 - Read `specs/README.md`, then the living specs listed in the issue's "Living spec" section.
 - Read `design/TECHNICAL-DECISIONS.md` (technical choices already made, `TD<n>`) and
   `app/ARCHITECTURE.md` (modules, conventions, `A<n>` decisions).

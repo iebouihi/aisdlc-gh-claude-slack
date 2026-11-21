@@ -78,6 +78,7 @@ class Fake:
         self.branches, self.files, self.pulls, self.broadcasts = {}, {}, {}, []
         self.next_answer, self.selection, self.pr_fails = None, [], False
         self.shas, self.dispatches, self.dispatch_fails = {}, [], False
+        self.other_comments, self.statuses = {}, []
         self.clock = time.time() - 3600
 
     # --- GitHub ---
@@ -129,6 +130,10 @@ class Fake:
         if method == "GET" and path.startswith("/pulls?head="):
             head = path.split("head=")[1].split("&")[0].split(":")[1]
             return [p for p in self.pulls.values() if p["head"]["ref"] == head and not p.get("merged")]
+        if method == "POST" and path.startswith("/issues/") and path.endswith("/comments"):  # a PR's comments
+            self.other_comments.setdefault(int(path.split("/")[2]), []).append(kw["json"]["body"]); return {}
+        if method == "POST" and path.startswith("/statuses/"):
+            self.statuses.append((path.split("/")[2], kw["json"])); return {}
         if method == "POST" and path.startswith("/actions/workflows/") and path.endswith("/dispatches"):
             if self.dispatch_fails:
                 raise RuntimeError("403 Resource not accessible by integration")
@@ -228,6 +233,18 @@ def test_each_step_loads_only_its_skills():
     assert "# Impact analysis" in select and "# Living specs" not in select and "# Final requirement" not in select
     assert "# Decide the next step" in thread and "# Impact analysis" not in thread
     assert len(select) < len(thread) < len(full)
+
+
+def test_requirements_carry_their_impact_on_existing_features():
+    """Refinement states which existing features change or must keep working; every later agent uses it."""
+    cfg = make_cfg()
+    agent = catalog.load_agent(cfg["claude"]["agent"])
+    thread = agent.system_prompt(only=["refine-thread", "requirement-format", "living-spec"])
+    assert "## Impact on existing features" in thread and "keeps working" in thread and "`changes`" in thread
+    assert "Impact on existing features" in agent.skill("refine-thread").tool["input_schema"]["properties"][
+        "final_requirement"]["description"]
+    for skill in ("design-feature", "technical-spec", "implement-issue", "pr-description", "test-feature"):
+        assert "Impact on existing features" in catalog.load_skill(skill).body, skill
 
 
 def test_no_instructions_hardcoded_in_python():
@@ -566,7 +583,7 @@ def delivery_setup(*label_keys):
 def test_developer_agent_files():
     agent = catalog.load_agent("developer")
     assert [s.name for s in agent.skills] == \
-        ["implement-issue", "tests-from-acceptance-criteria", "code-map", "pr-description"]
+        ["implement-issue", "tests-from-acceptance-criteria", "code-map", "pr-description", "regression-guard"]
     impl = agent.skill("implement-issue")
     assert "$issue" in impl.body and "$branch" in impl.body
     import json

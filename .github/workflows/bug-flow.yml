@@ -19,9 +19,12 @@ permissions:
   issues: write
   id-token: write      # Claude GitHub App authentication
   actions: read
+  statuses: write      # the test phase sets the QA commit status
 
 jobs:
   bug:
+    outputs:
+      review: ${{ steps.finish.outputs.review }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -60,5 +63,15 @@ jobs:
           settings: ${{ steps.start.outputs.settings }}
 
       - name: Report (root cause or fix PR) in GitHub and Slack
+        id: finish
         if: always() && steps.start.outputs.go == 'true'
         run: python -m automation.refinement bug-finish ${{ github.event.issue.number }} "${{ steps.start.outputs.mode }}" "$RUN_URL"
+
+  # The test phase starts as soon as the fix pull request is open.
+  test:
+    needs: bug
+    if: always() && needs.bug.outputs.review == 'true'
+    uses: ./.github/workflows/test-agent.yml
+    with:
+      issue: ${{ format('{0}', github.event.issue.number) }}
+    secrets: inherit

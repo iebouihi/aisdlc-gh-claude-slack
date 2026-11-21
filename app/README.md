@@ -22,16 +22,19 @@ npm run typecheck    # tsc --noEmit
 npm test             # Vitest
 npm run build        # static export to out/
 npm run check        # lint + typecheck + test + build
+npm run e2e          # Playwright end-to-end + regression suite on out/ (run build first)
+npm run e2e:report   # open the last Playwright HTML report
 npm run format       # Prettier
 ```
 
 ## Folder layout
 
-| Path              | What lives there                                                    |
-| ----------------- | ------------------------------------------------------------------- |
-| `src/app/`        | routes, root layout, global stylesheet and CSS Modules              |
-| `src/components/` | UI components with colocated tests                                  |
-| `src/lib/`        | domain logic and the storage helper (`storage.ts`, key `habits:v1`) |
+| Path              | What lives there                                                     |
+| ----------------- | -------------------------------------------------------------------- |
+| `src/app/`        | routes, root layout, global stylesheet and CSS Modules               |
+| `src/components/` | UI components with colocated tests                                   |
+| `src/lib/`        | domain logic and the storage helper (`storage.ts`, key `habits:v1`)  |
+| `e2e/`            | Playwright tests: `regression/` core journeys, `features/` per issue |
 
 Components never touch `localStorage` directly; they use the helper in `src/lib/storage.ts`, which
 never throws and returns a failure result instead.

@@ -20,6 +20,12 @@ Closes #<issue>
 | AC1 | `HabitList.test.tsx` › "AC1 (#1): …" | ✅ |
 | AC2 | `habits.test.ts` › "AC2 (#1): …" | ✅ |
 
+## Impact on existing features
+| Feature (spec) | Impact | Done |
+|---|---|---|
+| `habits/weekly-overview` | changes (AC5) | updated `WeekView.tsx`; tests `WeekView…` renamed to AC5 |
+| `habits/habit-streaks` | keeps working | unchanged; existing tests pass |
+
 ## Spec decisions honoured
 - `habits/habit-management` D3 (trimmed, 1–60 chars): `validateName` in `src/lib/habits.ts`
 
@@ -40,5 +46,6 @@ Closes #<issue>
 
 Rules:
 - Every AC from the issue appears in the table; mark ⚠️ with a reason if not fully covered.
+- Every row of the issue's "Impact on existing features" appears in the impact table.
 - Mention every new runtime dependency and why.
 - Keep it factual; no marketing language.

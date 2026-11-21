@@ -10,11 +10,11 @@
       },
       "slack_message": {
         "type": "string",
-        "description": "follow_up: the reply to post. propose: the final requirement for Slack (mrkdwn) with a Living spec changes section, without title or approval prompt."
+        "description": "follow_up: the reply to post. propose: the final requirement for Slack (mrkdwn) with Impact on existing features and Living spec changes sections, without title or approval prompt."
       },
       "final_requirement": {
         "type": "string",
-        "description": "propose only: the new GitHub issue body in the requirement-format skill's format."
+        "description": "propose only: the new GitHub issue body in the requirement-format skill's format, including the Impact on existing features section."
       },
       "spec_updates": {
         "type": "string",

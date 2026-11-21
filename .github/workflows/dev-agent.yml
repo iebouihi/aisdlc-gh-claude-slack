@@ -2,7 +2,8 @@ name: Developer agent
 
 # A person adds the "implement" label (config: delivery.labels.trigger) to a ready-for-dev issue
 # -> the developer agent (Claude Code, .claude/agents/developer.md) implements it in app/ and
-# opens a pull request for human review. Any other label: the run stops after the first step.
+# opens a pull request; the test phase (test-agent.yml) then tests it before people review and merge.
+# Any other label: the run stops after the first step.
 on:
   issues:
     types: [labeled]
@@ -17,9 +18,12 @@ permissions:
   issues: write
   id-token: write      # Claude GitHub App authentication
   actions: read        # lets the agent read CI results
+  statuses: write      # the test phase sets the QA commit status
 
 jobs:
   develop:
+    outputs:
+      review: ${{ steps.finish.outputs.review }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -56,5 +60,15 @@ jobs:
           settings: ${{ steps.start.outputs.settings }}
 
       - name: Report the pull request (GitHub, Slack)
+        id: finish
         if: always() && steps.start.outputs.go == 'true'
         run: python -m automation.refinement dev-finish ${{ github.event.issue.number }} "$RUN_URL"
+
+  # The test phase starts as soon as the pull request is open.
+  test:
+    needs: develop
+    if: always() && needs.develop.outputs.review == 'true'
+    uses: ./.github/workflows/test-agent.yml
+    with:
+      issue: ${{ format('{0}', github.event.issue.number) }}
+    secrets: inherit

@@ -60,7 +60,7 @@ class Testing(Delivery):
             if label:
                 self.swap_label(n, remove=[self.tl["trigger"]])
                 self.comment(n, g["test_no_pr"].format(**self.fields(issue)))
-            self.log(f"#{n}: no open code PR, nothing to test")
+            self.log(f"#{n}: no open code PR")
             return {"go": "false"}
         f = self.fields(issue, run_url, pr)
         self.swap_label(n, remove=[self.tl["trigger"], self.tl["review"], self.tl["approved"], self.dl["review"]],
@@ -112,7 +112,7 @@ class Testing(Delivery):
         if not pr:
             self.swap_label(n, remove=[self.tl["approved"]])
             self.comment(n, self.gh_text["qa_no_pr"].format(**f))
-            self.log(f"#{n}: qa-approved without an open code PR, removed")
+            self.log(f"#{n}: no code PR to approve")
             return
         self.set_status(pr, "success", "status_success")
         self.swap_label(n, remove=[self.tl["review"], self.tl["active"]], add=[self.dl["review"]])

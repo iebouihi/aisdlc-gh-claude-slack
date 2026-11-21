@@ -1,0 +1,102 @@
+name: Tester agent
+
+# The test phase, on an issue whose developer or fix pull request is open:
+#   called by dev-agent.yml / bug-flow.yml right after the PR is opened, or `test` label (re-test)
+#     -> the tester agent (Claude Code, .claude/agents/tester.md) writes Playwright tests for the
+#        acceptance criteria, runs the regression suite, explores, pushes the tests to the PR
+#        branch and writes a report; the automation posts it (issue, PR, Slack) and sets the
+#        QA commit status (pending when passed, failure otherwise)
+#   qa-approved label -> a person approves: QA status success, issue in-review
+# Any other label: the run stops after the first step.
+on:
+  issues:
+    types: [labeled]
+  workflow_call:
+    inputs:
+      issue:
+        description: Issue number
+        required: true
+        type: string
+
+concurrency:
+  group: test-issue-${{ inputs.issue || github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  statuses: write      # the QA commit status on the PR
+  id-token: write      # Claude GitHub App authentication
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      ISSUE: ${{ inputs.issue || github.event.issue.number }}
+      LABEL: ${{ github.event.label.name }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      TEST_CLAUDE_MODEL: ${{ vars.TEST_CLAUDE_MODEL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r automation/requirements.txt
+
+      - name: Decide and prepare (test, re-test or QA approval? labels, Slack)
+        id: start
+        run: python -m automation.refinement test-start "$ISSUE" "$LABEL" "$RUN_URL"
+
+      - name: Check out the pull request branch
+        if: steps.start.outputs.go == 'true'
+        env:
+          BRANCH: ${{ steps.start.outputs.branch }}
+        run: git checkout "$BRANCH"
+
+      - if: steps.start.outputs.go == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install the app and the Playwright browser
+        if: steps.start.outputs.go == 'true'
+        working-directory: app
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Tester agent tests the pull request
+        if: steps.start.outputs.go == 'true'
+        uses: anthropics/claude-code-action@v1
+        env:
+          CI: "true"
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ steps.start.outputs.prompt }}
+          claude_args: ${{ steps.start.outputs.claude_args }}
+          settings: ${{ steps.start.outputs.settings }}
+
+      - name: Keep the Playwright report
+        if: always() && steps.start.outputs.go == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-issue-${{ env.ISSUE }}
+          path: |
+            app/playwright-report
+            app/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Post the report (issue, PR, Slack, QA status)
+        if: always() && steps.start.outputs.go == 'true'
+        run: python -m automation.refinement test-finish "$ISSUE" "$RUN_URL"

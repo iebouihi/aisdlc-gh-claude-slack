@@ -42,7 +42,8 @@ The design step (technical spec, HTML mockup, technical decisions) is described 
    explicitly about any decision the issue would change. The thread shows which specs it builds on.
 4. **Refinement** (`refine-thread`, every 10 min). Follow-ups on gaps and conflicts, with the
    related specs re-read fresh each time. Changing an existing decision needs an explicit yes.
-5. **Proposal.** The final requirement plus the living spec changes: new spec files and edits
+5. **Proposal.** The final requirement (with its **Impact on existing features**: which existing
+   features change and which must keep working) plus the living spec changes: new spec files and edits
    to existing ones (changed decisions superseded, never contradicted), listed in the Slack message.
 6. **Approval.** Only the approver: ✅ on the proposal, or a reply that is only an approval.
    Checked by the automation, never decided by Claude.

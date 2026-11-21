@@ -21,3 +21,4 @@ jobs:
       - run: python -m automation.tests.test_refinement
       - run: python -m automation.tests.test_bugs
       - run: python -m automation.tests.test_design
+      - run: python -m automation.tests.test_testing

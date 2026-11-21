@@ -25,11 +25,22 @@ If no branch was given, use `dev/issue-$issue`.
   spec, design, technical or code-map decision. Then make no changes, open no PR, and end your run with a short
   summary of the blocker; the automation reports it on the issue and in Slack.
 
+## 1b. Impact on existing features
+The issue's **"Impact on existing features"** table is part of the requirement:
+- `changes` rows: update that existing feature to the new behaviour (its AC), and update the
+  existing tests that assert the old behaviour, unit and end-to-end (`app/e2e/`): change the
+  assertion to the new AC and rename the test (`AC5 (#$issue): …`). Never delete such a test
+  without replacing it.
+- `keeps working` rows: don't change that behaviour. Run its existing tests; if one fails, your
+  change caused a regression: fix your code, not the test (see `regression-guard`).
+- A behaviour change you need that is **not** in the table: don't make it; stop and ask in the PR.
+
 ## 2. Plan (keep it short, put it in the PR later)
 - Start from the technical spec's "Modules and files" and "Acceptance criteria → design" tables;
   otherwise decide which files you'll add or change, in which module (`src/lib`, `src/components`,
   `src/app`).
-- Which acceptance criteria each part covers.
+- Which acceptance criteria each part covers, and which impacted existing features (and tests)
+  each part changes.
 
 ## 3. Build in small steps
 - Domain logic first, as pure functions in `src/lib/` with unit tests.
@@ -41,6 +52,9 @@ If no branch was given, use `dev/issue-$issue`.
 
 ## 4. Verify
 - In `app/`: `npm ci` (first time) then `npm run check`. Fix until it passes.
+- Then the end-to-end regression suite: `npm run build && npm run e2e` (if the Playwright browser
+  is missing: `npx playwright install chromium`). Failures follow `regression-guard`. The tester
+  agent adds end-to-end tests for your acceptance criteria after you open the PR.
 - Re-read the acceptance criteria and tick each one off against a test.
 
 ## 5. Update the living context
