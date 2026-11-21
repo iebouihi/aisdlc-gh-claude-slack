@@ -48,6 +48,7 @@ class Refinement:
         self.ignore_text = [re.compile(p, re.S) for p in cfg["slack"].get("ignore_text_patterns", [])]
         self.sp = cfg["specs"]
         self.dz = cfg["design"]
+        self.tz = cfg["testing"]
         self._names = {}
 
     # ---------- shared helpers ----------

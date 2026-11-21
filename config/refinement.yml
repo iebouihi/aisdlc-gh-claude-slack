@@ -132,6 +132,27 @@ delivery:
   max_turns: 80
   settings: .claude/developer-settings.json      # permission rules: app/ only
 
+# Test phase: right after the developer agent opens its pull request (feature or fix), the tester
+# agent writes Playwright end-to-end tests for the acceptance criteria, runs the whole regression
+# suite (desktop + mobile, accessibility) and explores the feature; its report is posted on the
+# issue and the PR. A person approves with qa-approved, which sets the QA commit status to success
+# (make the status required in branch protection to enforce the gate).
+testing:
+  labels:
+    trigger: test                # a person adds it to (re-)test an issue whose code PR is open
+    active: in-test              # the tester agent is working
+    review: test-review          # report posted, waiting for a person's QA approval
+    approved: qa-approved        # a person approves: issue in-review, QA status success
+  agent: tester                  # .claude/agents/tester.md (runs as the main session)
+  prompt: "/test-feature {number} {branch} {report}"   # the test-feature skill
+  model: claude-sonnet-5-5       # (env: TEST_CLAUDE_MODEL)
+  max_turns: 100
+  settings: .claude/tester-settings.json         # permission rules: app/e2e/ and the report only
+  report_file: .agent/test-report.md
+  max_report_chars: 60000
+  verdicts: [pass, fail, blocked]                # anything else counts as blocked
+  status_context: QA             # commit status on the PR head; pending until qa-approved
+
 # Bug fixes: investigate the root cause, a person validates, then the developer agent fixes.
 # Same Slack channel; Slack gets status only (no questions there).
 bugs:
@@ -253,12 +274,22 @@ messages:
     dev_started: "🛠️ *Developer agent started* on #{number} {title}, branch `{branch}`. <{run_url}|Follow the run>"
     dev_pr: |-
       🛠️ *Code ready for review* - #{number} {title}
-      <{pr_url}|Review PR #{pr_number}>. Comment `@claude ...` on the PR to request changes; merge when you're happy.
+      <{pr_url}|Review PR #{pr_number}>. The tester agent tests it next; comment `@claude ...` on the PR to request changes, and merge after QA approval.
     dev_branch: |-
       🛠️ *Code ready for review* - #{number} {title}
       The code is on branch `{branch}`. <{compare_url}|Open the pull request>, review it and merge when you're happy.
     dev_no_changes: "⚠️ The developer agent finished #{number} without pushing code. <{run_url}|Its summary is in the run>. The issue is back to *{ready}*."
     dev_done: "🎉 #{number} {title} is merged and done: <{pr_url}|PR #{pr_number}>"
+    test_started: "🧪 *Tester agent started* on #{number} {title} (<{pr_url}|PR #{pr_number}>): end-to-end tests for the acceptance criteria, full regression suite, exploration. <{run_url}|Follow the run>"
+    test_report_pass: |-
+      🧪 *Tests passed* - #{number} {title}: {summary}
+      Acceptance criteria {acceptance}, regressions {regressions}. <{link}|Read the report>, then add `{approved}` to the issue to approve the merge of <{pr_url}|PR #{pr_number}>.
+    test_report_fail: |-
+      ❌ *Tests failed* - #{number} {title}: {summary}
+      Acceptance criteria {acceptance}, regressions {regressions}. <{link}|Read the report>. Comment `@claude ...` on <{pr_url}|PR #{pr_number}> to have the developer fix it, then add `{trigger}` to re-test.
+    test_report_blocked: "⚠️ *Testing blocked* - #{number} {title}: {summary} <{link}|Read the report>. Add `{trigger}` to try again."
+    test_no_report: "⚠️ The tester agent finished #{number} without a report. <{run_url}|See the run>. Add `{trigger}` to try again."
+    qa_approved: "✅ *QA approved* - #{number} {title}: <{pr_url}|PR #{pr_number}> is ready to merge."
     bug_analyzing: "🐞 *Bug #{number} {title}* is being analyzed. <{url}|Issue> · <{run_url}|Follow the run>"
     bug_analyzing_again: "🐞 #{number} is being analyzed again. <{run_url}|Follow the run>"
     bug_verdict_proposed: |-
@@ -271,7 +302,7 @@ messages:
     fix_started: "🛠️ *Fix validated* - the developer agent is fixing #{number} on `{branch}`. <{run_url}|Follow the run>"
     fix_pr: |-
       🛠️ *Fix ready for review* - #{number} {title}
-      <{pr_url}|Review PR #{pr_number}>. Comment `@claude ...` on the PR to request changes; merge when you're happy.
+      <{pr_url}|Review PR #{pr_number}>. The tester agent tests it next; comment `@claude ...` on the PR to request changes, and merge after QA approval.
     fix_branch: |-
       🛠️ *Fix ready for review* - #{number} {title}
       The fix is on branch `{branch}`. <{compare_url}|Open the pull request>, review it and merge when you're happy.
@@ -327,6 +358,18 @@ messages:
 
       Implemented by the developer agent: {run_url}
     dev_done: "✅ Merged in {pr_url}. Done."
+    test_started: "🧪 Tester agent started on `{branch}` ({pr_url}): {run_url}"
+    test_report_header: "## 🧪 Test report\n\nVerdict: **{verdict}** · Acceptance criteria: **{acceptance}** · Regressions: **{regressions}** · [Run]({run_url})\n\n> {summary}"
+    test_next_pass: "**Next:** review the report and add `{approved}` to the issue to approve the merge (sets the `{context}` status on the PR to success)."
+    test_next_fail: "**Next:** comment `@claude ...` on the pull request to have the developer fix the failures, then add `{trigger}` to the issue to re-test. A person may still approve with `{approved}`."
+    test_next_blocked: "**Next:** fix what blocked the run, then add `{trigger}` to the issue to try again."
+    test_no_pr: "`{trigger}` tests an issue whose developer or fix pull request is open; none found. Removed `{trigger}`."
+    test_no_report: "⚠️ The tester agent finished without a report: {run_url}. Add `{trigger}` to try again."
+    qa_approved: "✅ QA approved: {pr_url} can be merged (`{context}` status set to success)."
+    qa_no_pr: "`{approved}` approves the open developer or fix pull request of this issue; none found. Removed `{approved}`."
+    status_pending: "Tests passed - waiting for a person to add qa-approved"
+    status_failure: "Tests failed or blocked - see the test report"
+    status_success: "QA approved"
     bug_not_bug_type: "`{trigger}` starts the bug-fix flow only on bugs: issues of type **{type}** or with the `{type_label}` label. Add one of them, then add `{trigger}` again."
     bug_analyzing: "🐞 Root-cause investigation started: {run_url}"
     bug_report_header: "## 🔎 Root-cause analysis\n\nVerdict: **{verdict}** · Confidence: **{confidence}** · [Run]({run_url})\n\n> {summary}"

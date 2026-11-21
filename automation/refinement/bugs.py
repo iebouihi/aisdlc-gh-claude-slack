@@ -100,7 +100,7 @@ class BugFix(Delivery):
     def bug_finish(self, n, mode, run_url):
         if mode == "investigate":
             return self.post_report(n, run_url)
-        if mode == "fix":
+        if mode == "fix":  # {"review": "true"} when a fix PR is open: the test phase runs next
             return self.finish(n, run_url, kind="fix", branch=self.fix_branch(n), fallback=self.bl["proposed"])
 
     def post_report(self, n, run_url):
