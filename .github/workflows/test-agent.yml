@@ -37,7 +37,10 @@ jobs:
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       ISSUE: ${{ inputs.issue || github.event.issue.number }}
-      LABEL: ${{ github.event.label.name }}
+      # Called by dev-agent.yml / bug-flow.yml, github.event is the caller's event (its label is
+      # `implement` or `fix-approved`): only a direct label event passes a label to test-start.
+      CALLED_FOR: ${{ inputs.issue }}
+      EVENT_LABEL: ${{ github.event.label.name }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
       SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
@@ -53,7 +56,9 @@ jobs:
 
       - name: Decide and prepare (test, re-test or QA approval? labels, Slack)
         id: start
-        run: python -m automation.refinement test-start "$ISSUE" "$LABEL" "$RUN_URL"
+        run: |
+          if [ -n "$CALLED_FOR" ]; then label=""; else label="$EVENT_LABEL"; fi
+          python -m automation.refinement test-start "$ISSUE" "$label" "$RUN_URL"
 
       - name: Check out the pull request branch
         if: steps.start.outputs.go == 'true'
