@@ -37,9 +37,69 @@ function format(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Today and the 6 previous local dates, oldest to newest (a rolling window). */
-export function weekWindow(today: string): WeekDay[] {
-  const [y, m, d] = parts(today);
+export const MONTH_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/** `date` moved by `days` (negative = back), as a local date string. */
+export function shiftDate(date: string, days: number): string {
+  const [y, m, d] = parts(date);
+  return format(new Date(y, m - 1, d + days));
+}
+
+/** Earliest local date among the habits' createdAt and the check-ins; null when there is none. */
+export function earliestDate(
+  habits: readonly Habit[],
+  checkins: readonly CheckIn[],
+): string | null {
+  const dates: string[] = [];
+  for (const h of habits) {
+    const created = new Date(h.createdAt);
+    if (!Number.isNaN(created.getTime())) dates.push(format(created));
+  }
+  for (const c of checkins) dates.push(c.date);
+  return dates.length === 0 ? null : dates.reduce((a, b) => (b < a ? b : a));
+}
+
+/** Can the window ending at `end` go back (earliest is before it) or forward (it is in the past). */
+export function windowBounds(
+  end: string,
+  today: string,
+  earliest: string | null,
+): { canPrev: boolean; canNext: boolean } {
+  return {
+    canPrev: earliest !== null && earliest < shiftDate(end, -(WINDOW_DAYS - 1)),
+    canNext: end < today,
+  };
+}
+
+/** "Oct 20 – Oct 26"; ", YYYY" is appended when the window ends in another year than today. */
+export function rangeLabel(days: readonly WeekDay[], today: string): string {
+  const fmt = (date: string) => {
+    const [, m, d] = parts(date);
+    return `${MONTH_SHORT[m - 1]} ${d}`;
+  };
+  const first = days[0].date;
+  const last = days[days.length - 1].date;
+  const label = `${fmt(first)} – ${fmt(last)}`;
+  const year = parts(last)[0];
+  return year === parts(today)[0] ? label : `${label}, ${year}`;
+}
+
+/** The 7 local dates ending at `end`, oldest to newest. `isToday` only where a date is `today`. */
+export function weekWindow(end: string, today: string): WeekDay[] {
+  const [y, m, d] = parts(end);
   const days: WeekDay[] = [];
   for (let i = WINDOW_DAYS - 1; i >= 0; i--) {
     const date = new Date(y, m - 1, d - i);
@@ -73,12 +133,13 @@ export function weekRows(
   habits: readonly Habit[],
   checkins: readonly CheckIn[],
   today: string,
+  end: string = today,
 ): WeekRow[] {
   if (!today) return [];
-  const window = weekWindow(today);
+  const window = weekWindow(end, today);
   const first = window[0].date;
   return habits
-    .filter((h) => h.startDate <= today && (h.endDate === undefined || h.endDate >= first))
+    .filter((h) => h.startDate <= end && (h.endDate === undefined || h.endDate >= first))
     .map((habit) => {
       const cells = window.map(({ date }) => ({
         date,

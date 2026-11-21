@@ -90,3 +90,59 @@
   margin: 24px 0;
   font-weight: 600;
 }
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.navButton {
+  padding: 8px 12px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.navButton:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.navButton:disabled {
+  border-style: dashed;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.range {
+  flex: 1;
+  min-width: 140px;
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .range {
+    order: -1;
+    flex-basis: 100%;
+  }
+
+  .navButton {
+    flex: 1;
+  }
+}
+
+.monthMark {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
