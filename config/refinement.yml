@@ -298,6 +298,7 @@ messages:
       Merging makes #{number} ready for development.
     design_done: "📐 Design merged in {pr_url}. Ready for development: add `{trigger}` to start the developer agent."
     design_skipped: "⏭️ Design step skipped. Ready for development: add `{trigger}` to start the developer agent."
+    dev_needs_design: "Removed `{implement}`: this issue is `{ready}`, so the design comes first. Add `{design}` to start the designer agent, or `{skip}` to go straight to dev (then add `{implement}`)."
     dev_not_ready: "The developer agent only starts on issues labelled `{ready}`. Removed `{trigger}`."
     dev_started: "🛠️ Developer agent started on branch `{branch}`: {run_url}"
     dev_pr: "🛠️ Code ready for review: {pr_url}"
