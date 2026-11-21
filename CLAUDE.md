@@ -20,8 +20,19 @@ This repo runs the requirement refinement workflow for **good-habit-tracker**
 - Settings and every text the automation posts: `config/refinement.yml`. Never hardcode
   instructions, messages, IDs or label names in `automation/`.
 
+## Design (design/)
+- After the spec PR is merged an issue is `ready-for-design`: a person adds `design` to start the
+  `designer` agent (`design-feature` skill), or `skip-design` to go straight to `ready-for-dev`.
+- The designer writes `design/issue-<n>/technical-spec.md` and `design/issue-<n>/mockup.html`
+  (self-contained, real design tokens) and updates `design/TECHNICAL-DECISIONS.md`, the living
+  summary of technical choices (`TD<n>`), in one PR. Merging it makes the issue `ready-for-dev`.
+- The designer may change only `design/` (`.claude/designer-settings.json`, enforced again in CI).
+- Read `design/TECHNICAL-DECISIONS.md` before designing or building; don't contradict a `TD<n>`
+  silently (supersede it in a design PR).
+
 ## The app (app/)
 - Read `app/ARCHITECTURE.md` (the living code map) before changing code; keep it true.
+- Build from the merged design in `design/issue-<n>/` when it exists.
 - Implement issues with the `developer` agent / `implement-issue` skill: tests named after
   acceptance criteria (`AC3 (#1): …`), `npm run check` in `app/` must pass.
 - The developer agent may change only `app/` (`.claude/developer-settings.json`, enforced again

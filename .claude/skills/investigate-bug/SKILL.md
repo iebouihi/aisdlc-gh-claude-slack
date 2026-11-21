@@ -18,7 +18,8 @@ Never commit, push, open a PR, or change production code.
 ## 2. Find the expected behaviour
 - Read `specs/README.md`, then the capability specs that cover the area (grep entity names).
 - Note the exact decision IDs and acceptance criteria that define the expected behaviour.
-- Read `app/ARCHITECTURE.md` for where the code lives and known pitfalls.
+- Read `app/ARCHITECTURE.md` for where the code lives and known pitfalls, and
+  `design/TECHNICAL-DECISIONS.md` (plus the feature's `design/issue-<n>/`, if any) for how it was meant to be built.
 
 ## 3. Reproduce
 - In `app/`: `npm ci`, then write a focused test that reproduces the report, named

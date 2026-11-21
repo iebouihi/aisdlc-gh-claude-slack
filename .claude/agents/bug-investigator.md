@@ -15,7 +15,9 @@ decide, in a few minutes, whether and how the bug should be fixed. You never fix
    earlier analysis or answers.
 2. The living specs (`specs/README.md`, then the relevant capability specs): the expected
    behaviour, with decision IDs. A bug is code that breaks a spec decision or acceptance criterion.
-3. The code map `app/ARCHITECTURE.md`: where things are built, conventions, known pitfalls.
+3. The code map `app/ARCHITECTURE.md` and the technical decisions `design/TECHNICAL-DECISIONS.md`:
+   where things are built, conventions, technical choices, known pitfalls. The feature's design in
+   `design/issue-<n>/` (if any) shows how it was meant to be built.
 4. The code, its tests and its history (`git log`, `git blame`) for the area involved.
 
 ## Principles

@@ -1,7 +1,8 @@
 name: Claude (@claude)
 
-# Reviewers write "@claude <request>" on a pull request (or issue) -> the developer agent applies it,
-# with the same agent, skills and app/-only permission rules as the implementation run.
+# Reviewers write "@claude <request>" on a pull request (or issue) -> the agent that owns the branch
+# applies it, with the same agent, skills and permission rules as its own run: the designer on
+# design/ branches (design/ only), the developer everywhere else (app/ only).
 on:
   issue_comment:
     types: [created]
@@ -32,11 +33,26 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r automation/requirements.txt
-      - name: Developer agent settings from config
-        id: args
-        run: python -m automation.refinement agent-args
+      - name: Branch of the pull request (picks the agent)
+        id: pr
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          ISSUE_PR: ${{ github.event.issue.pull_request.url }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          ref="$HEAD_REF"
+          if [ -z "$ref" ] && [ -n "$ISSUE_PR" ]; then
+            ref=$(gh pr view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefName -q .headRefName)
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - name: Agent settings from config (designer on design branches, developer otherwise)
+        id: args
+        run: python -m automation.refinement agent-args "$REF"
+        env:
+          REF: ${{ steps.pr.outputs.ref }}
           DEV_CLAUDE_MODEL: ${{ vars.DEV_CLAUDE_MODEL }}
+          DESIGN_CLAUDE_MODEL: ${{ vars.DESIGN_CLAUDE_MODEL }}
       - uses: actions/setup-node@v5
         with:
           node-version: 22

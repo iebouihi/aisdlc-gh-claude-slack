@@ -60,20 +60,22 @@ class Delivery(Refinement):
 
     # ---------- finish ----------
 
-    def finish(self, n, run_url, kind="dev", branch=None, fallback=None):
+    def finish(self, n, run_url, kind="dev", branch=None, fallback=None, active=None, review=None, extra=None):
         """After the agent: link its PR (or open one, or hand over the branch), or report no code.
 
-        `kind` picks the texts (dev_* for features, fix_* for bug fixes); `fallback` is the label
-        the issue returns to when the agent pushed no code.
+        `kind` picks the texts (dev_* for features, fix_* for bug fixes, design_* for designs);
+        `fallback` is the label the issue returns to when the agent pushed nothing; `active` and
+        `review` are the state labels of the run (default: the delivery ones); `extra` adds text fields.
         """
         issue = self.gh("GET", f"/issues/{n}")
         g, s = self.gh_text, self.slack_text
         branch = branch or self.branch(n)
         fallback = fallback or self.labels["ready"]
+        active, review = active or self.dl["active"], review or self.dl["review"]
         base = self.cfg["github"]["base_branch"]
         owner = self.cfg["github"]["repo"].split("/")[0]
         fields = {"number": n, "title": issue["title"], "branch": branch, "run_url": run_url,
-                  "ready": fallback}
+                  "ready": fallback, **(extra or {})}
 
         prs = self.gh("GET", f"/pulls?head={owner}:{branch}&state=open") or []
         if not prs and self.branch_exists(branch):
@@ -85,19 +87,19 @@ class Delivery(Refinement):
                 self.log(f"::warning::{kind} PR not opened: {e}")
                 compare = issue["html_url"].split("/issues/")[0] + f"/compare/{base}...{branch}?expand=1"
                 self.comment(n, g[f"{kind}_branch"].format(compare_url=compare, **fields))
-                self.swap_label(n, remove=[self.dl["active"]], add=[self.dl["review"]])
+                self.swap_label(n, remove=[active], add=[review])
                 self.notify(n, s[f"{kind}_branch"].format(compare_url=compare, **fields), broadcast=True)
                 return
         if prs:
             pr = prs[0]
             self.comment(n, g[f"{kind}_pr"].format(pr_url=pr["html_url"]))
-            self.swap_label(n, remove=[self.dl["active"]], add=[self.dl["review"]])
+            self.swap_label(n, remove=[active], add=[review])
             self.notify(n, s[f"{kind}_pr"].format(pr_url=pr["html_url"], pr_number=pr["number"], **fields),
                         broadcast=True)
             self.log(f"#{n}: in review, PR #{pr['number']}")
             return
         self.comment(n, g[f"{kind}_no_changes"].format(**fields))
-        self.swap_label(n, remove=[self.dl["active"]], add=[fallback])
+        self.swap_label(n, remove=[active], add=[fallback])
         self.notify(n, s[f"{kind}_no_changes"].format(**fields))
         self.log(f"#{n}: agent pushed no code")
 
@@ -107,14 +109,43 @@ class Delivery(Refinement):
         """Branch prefix -> text kind of the code PRs this class closes on merge."""
         return {self.dv["branch_prefix"]: "dev"}
 
+    def mockup(self, n, branch):
+        """The Slack mockup link for an issue's design on a branch, or "" when it has no mockup."""
+        dz = self.dz
+        path = dz["mockup_file"].format(dir=dz["dir"], number=n)
+        if not self.gh("GET", f"/contents/{path}?ref={branch}", missing_ok=True):
+            return ""
+        url = dz["preview_url"].format(repo=self.cfg["github"]["repo"], branch=branch, path=path)
+        return self.slack_text["design_mockup"].format(mockup_url=url)
+
+    def design_merged(self, pr):
+        """A merged design PR makes its issue ready for development."""
+        ref, dl = pr["head"]["ref"], self.dz["labels"]
+        n = int(ref[len(self.dz["branch_prefix"]):])
+        issue = self.gh("GET", f"/issues/{n}")
+        if dl["review"] not in self.labels_of(issue) and dl["active"] not in self.labels_of(issue):
+            self.log(f"#{n}: no design review pending, skipped")
+            return
+        base = self.cfg["github"]["base_branch"]
+        fields = {"number": n, "title": issue["title"], "pr_url": pr["html_url"], "pr_number": pr["number"],
+                  "trigger": self.dl["trigger"], "mockup": self.mockup(n, base)}
+        self.swap_label(n, remove=[dl["review"], dl["active"]], add=[self.labels["ready"]])
+        self.comment(n, self.gh_text["design_done"].format(**fields))
+        self.notify(n, self.slack_text["design_done"].format(**fields))
+        if self.branch_exists(ref):
+            self.gh("DELETE", f"/git/refs/heads/{ref}")
+        self.log(f"#{n}: design merged, ready for dev")
+
     def pr_merged(self, pr_number):
-        """A merged PR: living spec -> issue ready; code PR (feature or fix) -> issue done and closed."""
+        """A merged PR: living spec -> ready for design; design -> ready for dev; code PR -> done and closed."""
         pr = self.gh("GET", f"/pulls/{pr_number}")
         ref = pr["head"]["ref"]
         if not pr.get("merged"):
             return
         if ref.startswith(self.sp["branch_prefix"]):
             return self.spec_merged(pr_number)
+        if ref.startswith(self.dz["branch_prefix"]):
+            return self.design_merged(pr)
         match = next(((p, k) for p, k in self.merge_kinds().items() if ref.startswith(p)), None)
         if not match:
             self.log(f"PR #{pr_number}: not an automation branch, skipped")

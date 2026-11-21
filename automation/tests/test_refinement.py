@@ -248,7 +248,7 @@ def test_config_texts_have_known_placeholders():
                "context", "limit", "level", "files", "pr_url", "pr_number", "branch", "compare_url", "ready",
                "module", "count", "entities", "titles", "id", "summary", "file", "decisions", "issues", "path",
                "content", "run_url", "trigger", "approved", "proposed", "type", "needs_refinement", "verdict",
-               "confidence", "report", "type_label"}
+               "confidence", "report", "type_label", "skip", "mockup", "mockup_url"}
     texts = [v for section in (cfg["messages"]["slack"], cfg["messages"]["github"], cfg["tasks"],
                                cfg["specs"]["generated"]) for v in section.values()]
     for t in texts:
@@ -391,11 +391,12 @@ def test_full_loop_with_living_spec_pr():
 
     pr["merged"] = True
     eng.spec_merged(100)
-    assert labels(f) == [lb["ready"]] and "ready for dev" in f.thread[-1]["text"]
+    assert labels(f) == [lb["ready_design"]] and "ready for design" in f.thread[-1]["text"]
+    assert f"`{cfg['design']['labels']['trigger']}`" in f.comments[-1]  # tells people how to start the design
     assert branch not in f.branches  # spec branch cleaned up
 
 
-def test_approval_without_spec_changes_is_ready_at_once():
+def test_approval_without_spec_changes_is_ready_for_design_at_once():
     cfg, f, eng = setup()
     eng.kickoff(7)
     f.say(PO, "rest ok")
@@ -403,7 +404,7 @@ def test_approval_without_spec_changes_is_ready_at_once():
     eng.sync()
     f.say(PO, ":white_check_mark:")
     eng.sync()
-    assert labels(f) == [cfg["github"]["labels"]["ready"]] and not f.pulls
+    assert labels(f) == [cfg["github"]["labels"]["ready_design"]] and not f.pulls
 
 
 def test_invalid_spec_update_posts_nothing():
@@ -500,7 +501,7 @@ def test_long_proposal_split_and_approved():
     assert len(f.calls) == n
     f.reactions[parts[-1]["ts"]] = [{"name": "white_check_mark", "users": [PO]}]  # ✅ on any part
     eng.sync()
-    assert labels(f) == [cfg["github"]["labels"]["ready"]]
+    assert labels(f) == [cfg["github"]["labels"]["ready_design"]]
 
 
 def test_signature_and_slack_split_proposal():
@@ -511,7 +512,7 @@ def test_signature_and_slack_split_proposal():
     f.comments.append(f"<!-- proposal: {first} -->\nposted\n<!-- body-start -->\n## Summary\nlive\n<!-- body-end -->")
     f.say(PO, "approved\n*Sent using* Claude")
     eng.sync()
-    assert labels(f) == [cfg["github"]["labels"]["ready"]] and f.issue["body"].startswith("## Summary\nlive")
+    assert labels(f) == [cfg["github"]["labels"]["ready_design"]] and f.issue["body"].startswith("## Summary\nlive")
 
 
 def test_rerefine_approved_issue():
@@ -637,11 +638,11 @@ def test_merged_dev_pr_closes_the_issue():
     assert "merged and done" in f.thread[-1]["text"] and "dev/issue-7" not in f.branches
 
 
-def test_merged_spec_pr_still_marks_ready():
+def test_merged_spec_pr_marks_ready_for_design():
     cfg, f, d = delivery_setup("spec_review")
     f.pulls[300] = {"number": 300, "html_url": "u", "merged": True, "head": {"ref": "spec/issue-7"}}
     d.pr_merged(300)
-    assert labels(f) == [cfg["github"]["labels"]["ready"]] and f.issue["state"] == "open"
+    assert labels(f) == [cfg["github"]["labels"]["ready_design"]] and f.issue["state"] == "open"
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 name: App CI
 
 # Typecheck, tests and static build of the app, on every PR and on main.
-# Agent PRs (branch prefixes dev/ and fix/) must also stay inside app/ - a deterministic guard,
+# Agent PRs must also stay inside their folder - dev/ and fix/ in app/, design/ in design/ - a deterministic guard,
 # whatever the agent's instructions say.
 on:
   pull_request:
@@ -35,17 +35,22 @@ jobs:
   agent-scope:
     if: >-
       github.event_name == 'pull_request' &&
-      (startsWith(github.head_ref, 'dev/') || startsWith(github.head_ref, 'fix/'))
+      (startsWith(github.head_ref, 'dev/') || startsWith(github.head_ref, 'fix/') ||
+       startsWith(github.head_ref, 'design/'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Agent changes stay inside app/
+      - name: Agent changes stay inside their folder (designer design/, developer app/)
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          outside=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -v '^app/' || true)
+          case "$HEAD_REF" in design/*) allowed=design ;; *) allowed=app ;; esac
+          outside=$(git diff --name-only "origin/$BASE_REF...HEAD" | grep -v "^$allowed/" || true)
           if [ -n "$outside" ]; then
-            echo "::error title=Agent changed files outside app/::$(echo $outside | tr '\n' ' ')"
+            echo "::error title=Agent changed files outside $allowed/::$(echo $outside | tr '\n' ' ')"
             exit 1
           fi
-          echo "All changes are inside app/."
+          echo "All changes are inside $allowed/."

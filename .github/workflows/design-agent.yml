@@ -1,0 +1,59 @@
+name: Designer agent
+
+# On issues labelled ready-for-design (config: github.labels.ready_design):
+#   design label      -> the designer agent (Claude Code, .claude/agents/designer.md) writes the
+#                        technical spec, the HTML mockup and the technical decisions summary in
+#                        design/, and opens a pull request for human review
+#   skip-design label -> the issue goes straight to ready-for-dev
+# Any other label: the run stops after the first step.
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: design-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write      # Claude GitHub App authentication
+  actions: read
+
+jobs:
+  design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      LABEL: ${{ github.event.label.name }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      DESIGN_CLAUDE_MODEL: ${{ vars.DESIGN_CLAUDE_MODEL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r automation/requirements.txt
+
+      - name: Decide and prepare (ready? design or skip? labels, Slack)
+        id: start
+        run: python -m automation.refinement design-start ${{ github.event.issue.number }} "$LABEL" "$RUN_URL"
+
+      - name: Designer agent designs the issue
+        if: steps.start.outputs.go == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ steps.start.outputs.prompt }}
+          claude_args: ${{ steps.start.outputs.claude_args }}
+          settings: ${{ steps.start.outputs.settings }}
+
+      - name: Report the design pull request (GitHub, Slack)
+        if: always() && steps.start.outputs.go == 'true'
+        run: python -m automation.refinement design-finish ${{ github.event.issue.number }} "$RUN_URL"

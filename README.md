@@ -2,7 +2,8 @@
 
 A demo of an AI-assisted requirements flow: requirements live in **GitHub issues**, get
 refined with the team by **Claude** in a **Slack** thread, and once approved they update the
-**living specs** in `specs/`, the shared context every agent and developer works from.
+**living specs** in `specs/`, the shared context every agent and developer works from. A
+**designer agent** then writes the technical spec and an HTML mockup before any code is built.
 
 The product used for the demo is **good-habit-tracker**, a small static Next.js app for
 tracking daily habits (data kept in the browser, no backend).
@@ -21,10 +22,17 @@ GitHub issue ──label: needs-refinement──► impact analysis: which specs
              issue body updated · spec PR opened and announced in Slack   [spec-review]
                                                 │ PR merged
                                                 ▼
-                       specs/ updated for everyone · issue ready-for-dev
+                       specs/ updated for everyone · issue ready-for-design
+                                                │ a person adds: design   (or skip-design)
+                                                ▼
+         designer agent (Claude Code GitHub Action) writes the technical spec + HTML mockup
+         in design/, updates TECHNICAL-DECISIONS.md, opens a PR announced in Slack [design-review]
+                                                │ review (@claude for changes), merge
+                                                ▼
+                                       issue ready-for-dev
                                                 │ a person adds: implement
                                                 ▼
-         developer agent (Claude Code GitHub Action) builds it in app/, tests per AC,
+         developer agent (Claude Code GitHub Action) builds the design in app/, tests per AC,
          updates the code map, opens a PR announced in Slack              [in-review]
                                                 │ review (@claude for changes), merge
                                                 ▼
@@ -41,6 +49,7 @@ Concepts (human in the loop, living context, agents and skills, governance) and 
   agents/
     requirements-refiner.md           refines issues; preloads the five skills below
     impact-analyst.md                 research subagent for developers: returns a 1-page brief
+    designer.md                       designs refined issues in design/: technical spec + HTML mockup
     developer.md                      implements approved issues and validated fixes in app/
     bug-investigator.md               finds a bug's root cause; never changes code
   skills/
@@ -49,6 +58,11 @@ Concepts (human in the loop, living context, agents and skills, governance) and 
     refine-thread/                    decide the next step              (SKILL.md + output.schema.json)
     requirement-format/               the final requirement format
     living-spec/                      spec format and update rules
+    design-feature/                   read → decide → technical spec → mockup → summary → PR
+    design-guidelines/                the rules every design follows (reuse, no new deps, a11y)
+    technical-spec/                   design/issue-<n>/technical-spec.md format (AC → design)
+    ui-mockup/                        self-contained HTML mockup on the real design tokens
+    technical-summary/                keep design/TECHNICAL-DECISIONS.md (TD<n>) true
     implement-issue/                  read → plan → build → test → code map → PR
     tests-from-acceptance-criteria/   tests named after AC IDs (traceability)
     code-map/                         keep app/ARCHITECTURE.md true
@@ -56,15 +70,18 @@ Concepts (human in the loop, living context, agents and skills, governance) and 
     investigate-bug/                  reproduce → locate → classify → plan (no fix)
     root-cause-report/                the report a person validates
     fix-bug/                          regression test first, smallest validated fix, PR
+  designer-settings.json              designer agent permissions: design/ only
   developer-settings.json             developer agent permissions: app/ only
   investigator-settings.json          investigator permissions: read and reproduce, no push
 specs/                                living specs: one file per capability + generated indexes
+design/                               TECHNICAL-DECISIONS.md (living summary of technical choices)
+                                      + issue-<n>/technical-spec.md and mockup.html per design
 app/                                  the Next.js static app + ARCHITECTURE.md (living code map)
 config/refinement.yml                 settings, budgets, prompts and every posted text
 automation/
   refinement/                         Python runner: GitHub ⇄ Slack ⇄ Claude ⇄ git plumbing only
   tests/                              offline tests of the whole loop
-.github/workflows/                    refine-kickoff, refine-sync, dev-agent, bug-flow,
+.github/workflows/                    refine-kickoff, refine-sync, design-agent, dev-agent, bug-flow,
                                       claude (@claude), pr-merged, app-ci, tests
 docs/                                 process, setup, Slack app manifest
 ```
@@ -80,6 +97,7 @@ Claude Code files:
   - `/impact-analysis 4` or "use the impact-analyst agent on #4": what does #4 touch?
   - `/refine-kickoff 3`: draft the questions for issue #3
   - `/refine-thread 1`: where does the refinement of #1 stand?
+  - `/design-feature 5` or "use the designer agent on #5": technical spec + mockup for #5
   - "read `specs/` and implement #2": the specs are the context for building
 
 Change how Claude works by editing a skill; change wording, labels, channel, budgets or model
@@ -99,9 +117,12 @@ issue ready. One-time setup: [docs/automation-setup.md](docs/automation-setup.md
 1. Open an issue with the **Requirement** template (it adds `needs-refinement`).
 2. Answer Claude's questions in the Slack thread ("3: yes", or "rest ok" for the defaults).
 3. The PO approves the proposal: ✅ reaction, or reply "approved".
-4. Review and merge the living spec PR announced in Slack; the issue becomes `ready-for-dev`.
-5. Add the `implement` label: the developer agent builds it and opens a PR, announced in Slack.
-6. Review it (comment `@claude …` for changes) and merge; the issue is done and closed.
+4. Review and merge the living spec PR announced in Slack; the issue becomes `ready-for-design`.
+5. Add the `design` label: the designer agent opens a design PR (technical spec, HTML mockup,
+   technical decisions), announced in Slack with a mockup link. Review and merge it; the issue
+   becomes `ready-for-dev`. Small or non-UI change? Add `skip-design` instead.
+6. Add the `implement` label: the developer agent builds it and opens a PR, announced in Slack.
+7. Review it (comment `@claude …` for changes) and merge; the issue is done and closed.
 
 **Bugs** take a shorter path: open a **Bug report** (it sets type Bug and the `bug` label), add `need-fix`. The
 investigator posts a root-cause report on the issue and the status in Slack; add `fix-approved`

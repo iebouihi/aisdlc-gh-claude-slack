@@ -47,6 +47,7 @@ class Refinement:
         self.max_chars = cfg["slack"]["max_message_chars"]
         self.ignore_text = [re.compile(p, re.S) for p in cfg["slack"].get("ignore_text_patterns", [])]
         self.sp = cfg["specs"]
+        self.dz = cfg["design"]
         self._names = {}
 
     # ---------- shared helpers ----------
@@ -198,7 +199,7 @@ class Refinement:
         self.comment(n, self.gh_text["thread_started"].format(link=self.permalink(self.channel, root))
                      + "\n\n" + THREAD_MARK.format(channel=self.channel, ts=root)
                      + "\n" + CONTEXT_MARK.format(paths=",".join(related)))
-        stale = [self.labels[k] for k in ("needs", "ready", "blocked", "spec_review")
+        stale = [self.labels[k] for k in ("needs", "ready_design", "ready", "blocked", "spec_review")
                  if self.labels[k] in self.labels_of(issue)]
         self.swap_label(n, remove=stale, add=[self.labels["active"]])
         self.log(f"#{n}: kicked off, thread {root}, context {related}")
@@ -332,10 +333,10 @@ class Refinement:
         self.gh("PATCH", f"/issues/{n}", json={"body": final + f"\n\n---\n{block}"})
         self.comment(n, g["approved"].format(approver=approver, link=thread_link))
 
-        if not spec:  # nothing lasting to record: ready right away
-            self.swap_label(n, remove=[labels["active"], labels["blocked"]], add=[labels["ready"]])
-            self.post(self.slack_text["done"].format(number=n, url=issue["html_url"]), thread_ts=root)
-            self.log(f"#{n}: approved, no spec change, ready")
+        if not spec:  # nothing lasting to record: ready for design right away
+            self.swap_label(n, remove=[labels["active"], labels["blocked"]], add=[labels["ready_design"]])
+            self.post(self.slack_text["done"].format(**self.design_next(issue)), thread_ts=root)
+            self.log(f"#{n}: approved, no spec change, design next")
             return
         issue_comment, slack_msg = spec
         self.comment(n, issue_comment)
@@ -370,7 +371,7 @@ class Refinement:
 
         names = ", ".join(f"`{u.path}`" for u in updates)
         fields = {"number": n, "title": issue["title"], "approver": approver, "files": names,
-                  "ready": self.labels["ready"]}
+                  "ready": self.labels["ready_design"]}
         try:
             pr = self.gh("POST", "/pulls", json={
                 "title": g["spec_pr_title"].format(**fields), "head": branch, "base": base,
@@ -384,8 +385,13 @@ class Refinement:
             return (g["spec_branch_pushed"].format(branch=branch, compare_url=compare, **fields),
                     self.slack_text["spec_branch"].format(branch=branch, compare_url=compare, **fields))
 
+    def design_next(self, issue):
+        """Fields for the texts that tell people how to start (or skip) the design step."""
+        return {"number": issue["number"], "url": issue["html_url"], "title": issue["title"],
+                "trigger": self.dz["labels"]["trigger"], "skip": self.dz["labels"]["skip"]}
+
     def spec_merged(self, pr_number):
-        """A merged spec PR makes its issue ready for development."""
+        """A merged spec PR makes its issue ready for the technical design."""
         pr = self.gh("GET", f"/pulls/{pr_number}")
         ref = pr["head"]["ref"]
         if not pr.get("merged") or not ref.startswith(self.sp["branch_prefix"]):
@@ -396,11 +402,12 @@ class Refinement:
         if self.labels["spec_review"] not in self.labels_of(issue):
             self.log(f"#{n}: no spec review pending, skipped")
             return
-        self.swap_label(n, remove=[self.labels["spec_review"]], add=[self.labels["ready"]])
-        self.comment(n, self.gh_text["spec_merged"].format(pr_url=pr["html_url"]))
+        nxt = self.design_next(issue)
+        self.swap_label(n, remove=[self.labels["spec_review"]], add=[self.labels["ready_design"]])
+        self.comment(n, self.gh_text["spec_merged"].format(pr_url=pr["html_url"], **nxt))
         thread = self.thread_of(self.gh("GET", f"/issues/{n}/comments?per_page=100"))
         if thread:
-            self.post(self.slack_text["done"].format(number=n, url=issue["html_url"]), thread_ts=thread[1])
+            self.post(self.slack_text["done"].format(**nxt), thread_ts=thread[1])
         if self.branch_exists(ref):  # may already be auto-deleted on merge
             self.gh("DELETE", f"/git/refs/heads/{ref}")
-        self.log(f"#{n}: spec merged, ready for dev")
+        self.log(f"#{n}: spec merged, ready for design")

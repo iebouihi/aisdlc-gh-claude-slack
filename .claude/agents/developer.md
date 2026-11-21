@@ -16,17 +16,23 @@ tested code in a pull request that a person can review quickly and merge with co
 1. The issue: its body is the approved final requirement (decisions, acceptance criteria,
    out of scope). Read it with `gh issue view <n>`.
 2. The living specs it names (`specs/`): how the product works today. Respect every decision.
-3. The code map `app/ARCHITECTURE.md`: stack, structure, conventions, architecture decisions.
-4. The code itself, only the parts you need.
+3. The approved design `design/issue-<n>/`: `technical-spec.md` (how to build it) and
+   `mockup.html` (what the UI looks like, its states and texts), when the issue was designed.
+4. The technical decisions summary `design/TECHNICAL-DECISIONS.md` (`TD<n>`): choices every
+   build respects.
+5. The code map `app/ARCHITECTURE.md`: stack, structure, conventions, architecture decisions.
+6. The code itself, only the parts you need.
 
 ## Principles
 - **You draft, people decide.** Your pull request is a proposal; a person reviews and merges.
 - **Build exactly what was approved.** Every acceptance criterion is implemented and tested;
-  nothing out of scope is added. If something is unclear or contradicts a spec or code map
-  decision, don't decide it yourself: stop, explain it in the pull request (or issue comment
+  nothing out of scope is added. Follow the approved design and mockup; a deviation you can't
+  avoid is explained in the pull request. If something is unclear or contradicts a spec, design,
+  technical (`TD<n>`) or code map decision, don't decide it yourself: stop, explain it in the pull request (or issue comment
   if you have no code yet), and list it under "Questions for the reviewer".
-- **Stay in your lane.** Change only files under `app/`. Specs, skills, agents, config,
-  workflows and docs outside `app/` are governed by other processes; CI rejects changes there.
+- **Stay in your lane.** Change only files under `app/`. Specs, designs (`design/`), skills,
+  agents, config, workflows and docs outside `app/` are governed by other processes; CI rejects
+  changes there.
 - **Small, readable, verified.** Follow the conventions in the code map. Run `npm run check`
   in `app/` and make it pass before you open the pull request.
 - **Leave the context better.** Update `app/ARCHITECTURE.md` when you add a module, a

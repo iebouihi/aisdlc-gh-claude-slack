@@ -15,13 +15,20 @@ If no branch was given, use `dev/issue-$issue`.
 - `gh issue view $issue`: the body is the **approved final requirement**. Note every decision,
   acceptance criterion (AC1, AC2, …), and what is out of scope.
 - Read `specs/README.md`, then the living specs listed in the issue's "Living spec" section.
-- Read `app/ARCHITECTURE.md` (stack, structure, conventions, decisions).
+- Read the approved design, when it exists: `design/issue-$issue/technical-spec.md` (approach,
+  modules and files, data, state, AC → design table, test plan) and `design/issue-$issue/mockup.html`
+  (layout, states, exact texts, roles and labels). The design was reviewed and merged: build it,
+  don't redesign it. No design folder means the design step was skipped; design it yourself, small.
+- Read `design/TECHNICAL-DECISIONS.md` (`TD<n>`) and `app/ARCHITECTURE.md` (stack, structure,
+  conventions, `A<n>` decisions).
 - Stop if the issue is not ready: no acceptance criteria, or a criterion that contradicts a
-  spec or code-map decision. Then make no changes, open no PR, and end your run with a short
+  spec, design, technical or code-map decision. Then make no changes, open no PR, and end your run with a short
   summary of the blocker; the automation reports it on the issue and in Slack.
 
 ## 2. Plan (keep it short, put it in the PR later)
-- Which files you'll add or change, in which module (`src/lib`, `src/components`, `src/app`).
+- Start from the technical spec's "Modules and files" and "Acceptance criteria → design" tables;
+  otherwise decide which files you'll add or change, in which module (`src/lib`, `src/components`,
+  `src/app`).
 - Which acceptance criteria each part covers.
 
 ## 3. Build in small steps
@@ -29,7 +36,8 @@ If no branch was given, use `dev/issue-$issue`.
 - Then components and wiring, with component tests.
 - Follow `tests-from-acceptance-criteria`: every AC has at least one test whose name starts
   with `AC<n> (#$issue):`.
-- Respect every spec decision. No features beyond the requirement.
+- Respect every spec decision and every `TD<n>`. Match the mockup's structure, states and texts.
+  No features beyond the requirement.
 
 ## 4. Verify
 - In `app/`: `npm ci` (first time) then `npm run check`. Fix until it passes.

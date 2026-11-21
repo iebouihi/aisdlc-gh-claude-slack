@@ -177,7 +177,7 @@ def test_fix_branch_handed_over_when_pr_not_allowed():
 
 
 def test_feature_merge_unchanged_through_bugfix():
-    """The PR-merged entry point now uses BugFix; feature and spec PRs behave exactly as before."""
+    """The PR-merged entry point uses BugFix; feature and spec PRs keep their own routing."""
     cfg, f, bug, _ = setup("dev_review", issue_type=None)
     f.pulls[200] = {"number": 200, "html_url": "https://github.com/x/y/pull/200", "merged": True,
                     "head": {"ref": "dev/issue-7"}}
@@ -186,7 +186,7 @@ def test_feature_merge_unchanged_through_bugfix():
     cfg, f, bug, _ = setup("spec_review", issue_type=None)
     f.pulls[300] = {"number": 300, "html_url": "u", "merged": True, "head": {"ref": "spec/issue-7"}}
     bug.pr_merged(300)
-    assert labels(f) == [cfg["github"]["labels"]["ready"]] and f.issue["state"] == "open"
+    assert labels(f) == [cfg["github"]["labels"]["ready_design"]] and f.issue["state"] == "open"
 
 
 if __name__ == "__main__":

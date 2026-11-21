@@ -1,12 +1,15 @@
 """Usage:
   python -m automation.refinement kickoff <issue_number>      open the Slack thread for a labelled issue
   python -m automation.refinement sync                        follow every thread in refinement
+  python -m automation.refinement design-start <issue> <label> <run_url>  design or skip-design?
+  python -m automation.refinement design-finish <issue> <run_url>  report the designer's pull request
   python -m automation.refinement dev-start <issue> <run_url> decide and prepare a developer agent run
   python -m automation.refinement dev-finish <issue> <run_url> report the agent's pull request
-  python -m automation.refinement agent-args                  developer agent CLI args (for @claude runs)
+  python -m automation.refinement agent-args [branch]         agent CLI args for @claude runs (designer on design branches)
   python -m automation.refinement bug-start <issue> <label> <run_url>  bug flow: investigate or fix?
   python -m automation.refinement bug-finish <issue> <mode> <run_url>  post the report / the fix PR
-  python -m automation.refinement pr-merged <pr_number>       spec PR -> ready; feature or fix PR -> done
+  python -m automation.refinement pr-merged <pr_number>       spec PR -> ready for design; design PR -> ready for dev;
+                                                              feature or fix PR -> done
   python -m automation.refinement specs-index                 regenerate specs/**/README.md locally
   python -m automation.refinement show-prompt [select|kickoff|thread]  what Claude receives (no API calls)
 """
@@ -19,6 +22,7 @@ from . import specs as spec_store
 from .clients import Claude, GitHub, Slack
 from .bugs import BugFix
 from .delivery import Delivery
+from .design import Design
 from .engine import Refinement
 
 SECRETS = ("GITHUB_TOKEN", "SLACK_BOT_TOKEN", "ANTHROPIC_API_KEY")
@@ -35,6 +39,10 @@ def build(cfg):
 
 def delivery(cfg):
     return Delivery(cfg, GitHub(cfg["github"]["repo"]), Slack())
+
+
+def design(cfg):
+    return Design(cfg, GitHub(cfg["github"]["repo"]), Slack())
 
 
 def bugfix(cfg):
@@ -84,11 +92,16 @@ def main(argv):
         return show_prompt(cfg, (argv[1:] or ["kickoff"])[0])
     if argv == ["specs-index"]:
         return specs_index(cfg)
-    if argv == ["agent-args"]:
-        return write_outputs(Delivery(cfg, None, None).agent_args())
-    if argv[:1] in (["dev-start"], ["dev-finish"], ["pr-merged"], ["spec-merged"], ["bug-start"], ["bug-finish"]):
+    if argv[:1] == ["agent-args"] and len(argv) <= 2:
+        return write_outputs(Design(cfg, None, None).agent_for_branch((argv[1:] or [""])[0]))
+    if argv[:1] in (["dev-start"], ["dev-finish"], ["pr-merged"], ["spec-merged"], ["bug-start"], ["bug-finish"],
+                    ["design-start"], ["design-finish"]):
         if missing(DELIVERY_SECRETS):
-            return write_outputs({"go": "false"}) if argv[0] in ("dev-start", "bug-start") else None
+            return write_outputs({"go": "false"}) if argv[0] in ("dev-start", "bug-start", "design-start") else None
+        if argv[0] == "design-start" and len(argv) == 4:
+            return write_outputs(design(cfg).design_start(int(argv[1]), argv[2], argv[3]))
+        if argv[0] == "design-finish" and len(argv) == 3:
+            return design(cfg).design_finish(int(argv[1]), argv[2])
         if argv[0] == "bug-start" and len(argv) == 4:
             return write_outputs(bugfix(cfg).bug_start(int(argv[1]), argv[2], argv[3]))
         if argv[0] == "bug-finish" and len(argv) == 4:
