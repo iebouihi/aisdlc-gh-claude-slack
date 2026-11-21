@@ -1,0 +1,52 @@
+.insights {
+  min-width: 0;
+  margin-top: var(--space-8);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.note {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.progress {
+  margin: 0;
+  font-weight: 600;
+}
+
+.list {
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.name {
+  min-width: 0;
+  flex: 1 1 140px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.text {
+  font-weight: 600;
+}
+
+.by {
+  color: var(--muted);
+}
