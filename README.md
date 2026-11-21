@@ -27,7 +27,8 @@ GitHub issue ──label: needs-refinement──► impact analysis: which specs
                                                 ▼
          designer agent (Claude Code GitHub Action) writes the technical spec + HTML mockup
          in design/, updates TECHNICAL-DECISIONS.md, opens a PR announced in Slack [design-review]
-                                                │ review (@claude for changes), merge
+                                                │ review (@Claude in the Slack thread or @claude
+                                                │ on the PR for changes), merge
                                                 ▼
                                        issue ready-for-dev
                                                 │ a person adds: implement
@@ -119,7 +120,8 @@ issue ready. One-time setup: [docs/automation-setup.md](docs/automation-setup.md
 3. The PO approves the proposal: ✅ reaction, or reply "approved".
 4. Review and merge the living spec PR announced in Slack; the issue becomes `ready-for-design`.
 5. Add the `design` label: the designer agent opens a design PR (technical spec, HTML mockup,
-   technical decisions), announced in Slack with a mockup link. Review and merge it; the issue
+   technical decisions), announced in Slack with a mockup link. Remarks? Mention @Claude in the
+   Slack thread (or `@claude` on the PR) and the designer updates the same PR. Merge it; the issue
    becomes `ready-for-dev`. Small or non-UI change? Add `skip-design` instead.
 6. Add the `implement` label: the developer agent builds it and opens a PR, announced in Slack.
 7. Review it (comment `@claude …` for changes) and merge; the issue is done and closed.

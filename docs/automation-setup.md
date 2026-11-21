@@ -5,9 +5,9 @@ GitHub Actions run the workflow without anyone prompting Claude:
 | Workflow | When | What |
 |---|---|---|
 | `refine-kickoff.yml` | An issue gets `needs-refinement` | Claude reads it, opens a thread in `#claude-app` with questions, labels it `in-refinement` |
-| `refine-sync.yml` | Every 10 min (or *Run workflow*) | Claude reads new replies: asks follow-ups, posts the 📋 proposal; after approval writes back the issue and opens the living spec PR (announced in Slack); nudges / marks `blocked` |
+| `refine-sync.yml` | Every 10 min (or *Run workflow*) | Claude reads new replies: asks follow-ups, posts the 📋 proposal; after approval writes back the issue and opens the living spec PR (announced in Slack); nudges / marks `blocked`. Then hands Slack remarks mentioning @Claude on open design PRs to the designer (needs `actions: write` to start `design-agent.yml`) |
 | `tests.yml` | Push to automation, skills or config | Offline tests of the whole loop |
-| `design-agent.yml` | A person adds `design` (or `skip-design`) to a `ready-for-design` issue | The designer agent writes the technical spec, the HTML mockup and the technical decisions in `design/` and opens a PR, announced in Slack with a mockup link (`skip-design`: straight to `ready-for-dev`) |
+| `design-agent.yml` | A person adds `design` (or `skip-design`) to a `ready-for-design` issue; or the sync job, for Slack review remarks | The designer agent writes the technical spec, the HTML mockup and the technical decisions in `design/` and opens a PR, announced in Slack with a mockup link (`skip-design`: straight to `ready-for-dev`) |
 | `dev-agent.yml` | A person adds `implement` to a `ready-for-dev` issue | The developer agent (Claude Code GitHub Action) implements it in `app/` and opens a PR, announced in Slack |
 | `bug-flow.yml` | `need-fix` / `fix-approved` on a bug (type Bug or `bug` label) | Investigator posts the root-cause report (Slack: status only); after validation the developer agent opens the fix PR |
 | `claude.yml` | `@claude` in a PR or issue comment | The designer agent (on `design/` PRs) or the developer agent applies the requested change |

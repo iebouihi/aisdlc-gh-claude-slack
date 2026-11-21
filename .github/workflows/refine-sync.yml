@@ -2,6 +2,7 @@ name: Refinement sync
 
 # Follows every in-refinement Slack thread: follow-ups, final proposal,
 # approval -> write-back to the issue, nudges and blocked status.
+# Then hands Slack review remarks (mentioning Claude) on open design PRs to the designer agent.
 # Settings and texts: config/refinement.yml. Instructions: .claude/agents + .claude/skills.
 on:
   schedule:
@@ -16,6 +17,7 @@ permissions:
   issues: write
   contents: write        # push the living spec branch
   pull-requests: write   # open the living spec PR
+  actions: write         # start the designer on Slack review remarks (workflow_dispatch)
 
 jobs:
   sync:
@@ -36,3 +38,10 @@ jobs:
           SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
           SLACK_APPROVER_ID: ${{ vars.SLACK_APPROVER_ID }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+      - name: Send Slack review remarks on open designs to the designer
+        if: always()
+        run: python -m automation.refinement design-remarks
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}

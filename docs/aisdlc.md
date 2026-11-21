@@ -175,7 +175,7 @@ flowchart TD
     W --> P["Design PR opened<br/>announced in Slack with a mockup link<br/>label: design-review"]
     P --> G["CI: changes only in design/"]
     G --> V{"Team reviews"}
-    V -- "@claude change request" --> F["Designer applies the change<br/>pushes to the same PR"]
+    V -- "@claude on the PR, or<br/>@Claude remarks in the Slack thread" --> F["Designer applies the remarks<br/>pushes to the same PR<br/>Slack: design updated"]
     F --> G
     V -- "merged" --> D["Issue ready-for-dev<br/>design + technical decisions<br/>are context for the developer"]
     S -. "blocked or nothing pushed" .-> X["Back to ready-for-design<br/>reason in the run"]
@@ -187,6 +187,12 @@ flowchart TD
     class S,B,W,P,F,X,G agent
     class R,D truth
 ```
+
+Review remarks can come from Slack: during `design-review`, a reply in the issue's thread that
+mentions @Claude is collected by the sync job (every few minutes), posted on the issue as
+"Design remarks from Slack" (who said what, with a link), and the designer runs again on the same
+branch. The thread then hears "Design updated" with the PR and mockup links. Plain discussion
+without a mention is left alone, and each remark is handled once.
 
 | Input | Output | Living context updated |
 |---|---|---|

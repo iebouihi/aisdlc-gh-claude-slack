@@ -77,6 +77,7 @@ class Fake:
         self.comments, self.thread, self.reactions, self.calls = [], [], {}, []
         self.branches, self.files, self.pulls, self.broadcasts = {}, {}, {}, []
         self.next_answer, self.selection, self.pr_fails = None, [], False
+        self.shas, self.dispatches, self.dispatch_fails = {}, [], False
         self.clock = time.time() - 3600
 
     # --- GitHub ---
@@ -100,7 +101,7 @@ class Fake:
         if method == "GET" and path.startswith("/git/ref/heads/"):
             b = path.split("/git/ref/heads/")[1]
             if b == "main" or b in self.branches:
-                return {"object": {"sha": "base-sha"}}
+                return {"object": {"sha": self.shas.get(b, "base-sha")}}
             assert missing_ok
             return None
         if method == "DELETE" and path.startswith("/git/refs/heads/"):
@@ -128,6 +129,10 @@ class Fake:
         if method == "GET" and path.startswith("/pulls?head="):
             head = path.split("head=")[1].split("&")[0].split(":")[1]
             return [p for p in self.pulls.values() if p["head"]["ref"] == head and not p.get("merged")]
+        if method == "POST" and path.startswith("/actions/workflows/") and path.endswith("/dispatches"):
+            if self.dispatch_fails:
+                raise RuntimeError("403 Resource not accessible by integration")
+            self.dispatches.append((path.split("/")[3], kw["json"])); return None
         if method == "GET" and path.startswith("/pulls/"):
             return self.pulls[int(path.rsplit("/", 1)[1])]
         raise AssertionError(f"unexpected GitHub call {method} {path}")
@@ -248,7 +253,7 @@ def test_config_texts_have_known_placeholders():
                "context", "limit", "level", "files", "pr_url", "pr_number", "branch", "compare_url", "ready",
                "module", "count", "entities", "titles", "id", "summary", "file", "decisions", "issues", "path",
                "content", "run_url", "trigger", "approved", "proposed", "type", "needs_refinement", "verdict",
-               "confidence", "report", "type_label", "skip", "mockup", "mockup_url"}
+               "confidence", "report", "type_label", "skip", "mockup", "mockup_url", "names", "count", "remarks", "name", "text"}
     texts = [v for section in (cfg["messages"]["slack"], cfg["messages"]["github"], cfg["tasks"],
                                cfg["specs"]["generated"]) for v in section.values()]
     for t in texts:

@@ -26,6 +26,9 @@ This repo runs the requirement refinement workflow for **good-habit-tracker**
 - The designer writes `design/issue-<n>/technical-spec.md` and `design/issue-<n>/mockup.html`
   (self-contained, real design tokens) and updates `design/TECHNICAL-DECISIONS.md`, the living
   summary of technical choices (`TD<n>`), in one PR. Merging it makes the issue `ready-for-dev`.
+- Review remarks: mentioning @Claude in the issue's Slack thread during `design-review` makes the
+  sync job post the remarks on the issue and rerun the designer on the same PR (mode revise);
+  `@claude` on the PR works too.
 - The designer may change only `design/` (`.claude/designer-settings.json`, enforced again in CI).
 - Read `design/TECHNICAL-DECISIONS.md` before designing or building; don't contradict a `TD<n>`
   silently (supersede it in a design PR).

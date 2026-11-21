@@ -10,7 +10,7 @@ from pathlib import Path
 from automation.refinement import catalog, config
 from automation.refinement.bugs import BugFix
 from automation.refinement.design import Design
-from automation.tests.test_refinement import Fake, labels, make_cfg
+from automation.tests.test_refinement import BOT, DEV, PO, Fake, labels, make_cfg
 
 RUN = "https://github.com/x/y/actions/runs/9"
 THREAD = "<!-- slack-thread: C1/100.000001 -->"
@@ -156,6 +156,101 @@ def test_claude_mentions_use_the_agent_of_the_branch():
     assert d.agent_for_branch("design/issue-7")["settings"] == cfg["design"]["settings"]
     for branch in ("dev/issue-7", "fix/issue-7", ""):
         assert d.agent_for_branch(branch)["claude_args"].startswith("--agent developer "), branch
+
+
+# ---------- review remarks from Slack ----------
+
+def review_setup():
+    cfg, f, d = setup("design_review")
+    f.comments[0] = "<!-- slack-thread: C1/1000.000001 -->"
+    f.pulls[300] = {"number": 300, "html_url": "https://github.com/x/y/pull/300", "merged": False,
+                    "head": {"ref": "design/issue-7"}, "created_at": "2001-09-09T02:40:00Z"}  # ts 1000003440
+    f.branches["design/issue-7"] = {MOCKUP: "<html>"}
+    f.thread[:] = [{"ts": "1000.000001", "user": BOT, "bot_id": "B1", "text": "Refinement"},
+                   {"ts": "1000002000.000001", "user": DEV, "text": "@Claude old remark, before the design PR"}]
+    f.clock = 1000004000
+    return cfg, f, d
+
+
+def test_slack_remarks_mentioning_claude_start_a_revise_run():
+    cfg, f, d = review_setup()
+    f.say(PO, "looks good overall")  # no mention: just discussion
+    f.say(DEV, f"<@{BOT}> make the mood buttons bigger\nand show the empty state")
+    f.say(PO, "@claude use the accent colour for the selected mood")
+    d.remarks()
+    assert labels(f) == [cfg["design"]["labels"]["active"]]
+    assert f.dispatches == [(cfg["design"]["remarks"]["workflow"],
+                             {"ref": "main", "inputs": {"issue": "7", "mode": "revise"}})]
+    posted = f.comments[-1]
+    assert posted.startswith("<!-- design-remarks: ") and "Design remarks from Slack" in posted and "pull/300" in posted
+    assert "> **Sara (dev):** make the mood buttons bigger\n> and show the empty state" in posted
+    assert "**Imad (PO):** @claude use the accent colour" in posted
+    assert "looks good overall" not in posted and "old remark" not in posted and f"<@{BOT}>" not in posted
+    assert "2 remark(s)" in f.thread[-1]["text"] and "Sara (dev), Imad (PO)" in f.thread[-1]["text"]
+
+
+def test_remarks_are_sent_only_once_and_later_ones_count():
+    cfg, f, d = review_setup()
+    f.say(DEV, "@Claude bigger buttons")
+    d.remarks()
+    f.issue["labels"] = [{"name": cfg["design"]["labels"]["review"]}]  # the revise run finished
+    d.remarks()
+    assert len(f.dispatches) == 1  # nothing new
+    f.say(PO, "@Claude and a darker border")
+    d.remarks()
+    assert len(f.dispatches) == 2 and "darker border" in f.comments[-1] and "bigger buttons" not in f.comments[-1]
+
+
+def test_no_remarks_without_mention_or_open_pr():
+    cfg, f, d = review_setup()
+    f.say(DEV, "nice mockup")
+    d.remarks()
+    assert not f.dispatches and labels(f) == [cfg["design"]["labels"]["review"]]
+    f.say(DEV, "@Claude change it")
+    f.pulls[300]["merged"] = True  # PR no longer open
+    d.remarks()
+    assert not f.dispatches
+
+
+def test_failed_dispatch_puts_the_design_back_in_review():
+    cfg, f, d = review_setup()
+    f.say(DEV, "@Claude change it")
+    f.dispatch_fails = True
+    d.remarks()  # error logged, other issues would continue
+    assert labels(f) == [cfg["design"]["labels"]["review"]] and not f.dispatches
+
+
+def test_revise_run_updates_the_same_pr_and_reports_in_slack():
+    cfg, f, d = review_setup()
+    f.say(DEV, "@Claude bigger buttons")
+    d.remarks()
+    out = d.revise_start(7, RUN)
+    assert out["go"] == "true" and out["branch"] == "design/issue-7" and out["before"] == "base-sha"
+    assert out["claude_args"].startswith("--agent designer ") and "Design remarks from Slack" in out["prompt"]
+    assert "\n" not in out["prompt"]  # one line for the Action input
+    f.shas["design/issue-7"] = "new-sha"
+    d.revise_finish(7, RUN, out["before"])
+    assert labels(f) == [cfg["design"]["labels"]["review"]]
+    assert "Design updated" in f.thread[-1]["text"] and "pull/300" in f.thread[-1]["text"]
+    assert "Open the mockup" in f.thread[-1]["text"] and RUN in f.comments[-1]
+
+
+def test_revise_run_without_change_says_so():
+    cfg, f, d = review_setup()
+    f.issue["labels"] = [{"name": cfg["design"]["labels"]["active"]}]
+    out = d.revise_start(7, RUN)
+    d.revise_finish(7, RUN, out["before"])
+    assert labels(f) == [cfg["design"]["labels"]["review"]] and "without changing the design" in f.thread[-1]["text"]
+
+
+def test_revise_needs_an_issue_under_design():
+    cfg, f, d = review_setup()  # still design-review: nobody asked for a revision
+    assert d.revise_start(7, RUN) == {"go": "false"}
+
+
+def test_designer_knows_about_slack_remarks():
+    body = catalog.load_skill("design-feature").body
+    assert "Design remarks from Slack" in body
 
 
 if __name__ == "__main__":
