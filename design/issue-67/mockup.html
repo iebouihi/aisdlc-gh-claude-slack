@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>#67 First-run setup mockup</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #f6f8fa;
+  --fg: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --border-strong: #59636e;
+  --accent: #0b6bcb;
+  --on-accent: #ffffff;
+  --danger: #b42318;
+  --on-danger: #ffffff;
+  --overlay: rgb(0 0 0 / 50%);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --control-height: 40px;
+  --field-gap: var(--space-3);
+  --radius: 8px;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:var(--space-4);font-family:var(--font-sans);color:var(--fg);background:var(--surface)}
+h1{font-size:var(--text-lg);margin:0 0 var(--space-2)}
+h2{font-size:var(--text-md);margin:var(--space-6) 0 var(--space-2)}
+header p{margin:0 0 var(--space-2);color:var(--muted)}
+.new{outline:2px dashed var(--accent);outline-offset:2px}
+.tag{display:inline-block;background:var(--accent);color:var(--on-accent);font-size:0.7rem;padding:0 var(--space-2);border-radius:var(--radius);margin-left:var(--space-2)}
+.frames{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:flex-start}
+.frame{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:var(--space-4);width:100%;max-width:640px}
+.frame.mobile{max-width:360px}
+.label{font-size:var(--text-sm);color:var(--muted);margin:0 0 var(--space-2)}
+/* Setup screen */
+.setup h3{font-size:var(--text-xl);margin:0 0 var(--space-2)}
+.setup .intro{margin:0 0 var(--space-4);color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:var(--space-1);margin-bottom:var(--space-4)}
+.field label{font-weight:600}
+.input{width:100%;min-height:var(--control-height);padding:var(--space-2) var(--space-3);font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--border-strong);border-radius:var(--radius)}
+.input.focus{outline:2px solid var(--accent);outline-offset:2px}
+.input[aria-invalid="true"]{border-color:var(--danger)}
+.err{margin:0;color:var(--danger);font-size:var(--text-sm)}
+.err::before{content:"⚠️ "}
+fieldset{border:0;padding:0;margin:0 0 var(--space-4)}
+legend{font-weight:600;padding:0;margin-bottom:var(--space-2)}
+.opts{list-style:none;margin:0;padding:0;display:grid;gap:var(--space-2)}
+.opt{display:flex;align-items:center;gap:var(--space-3);min-height:var(--control-height);padding:var(--space-1) var(--space-3);border:1px solid var(--border);border-radius:var(--radius)}
+.opt input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--accent)}
+.opt label{flex:1;display:flex;gap:var(--space-2);align-items:center;min-height:var(--control-height)}
+.opt.checked{border-color:var(--accent)}
+.actions{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.btn{min-height:var(--control-height);padding:var(--space-2) var(--space-3);font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--muted);border-radius:var(--radius);cursor:pointer}
+.btn.primary{color:var(--on-accent);background:var(--accent);border-color:var(--accent)}
+.btn.focus{outline:2px solid var(--accent);outline-offset:2px}
+/* Existing app pieces */
+nav.app{display:flex;gap:var(--space-4);border-bottom:1px solid var(--border);margin-bottom:var(--space-4)}
+nav.app button{padding:var(--space-2) 0;color:var(--fg);background:none;border:0;font:inherit;cursor:pointer}
+nav.app button[aria-current]{font-weight:700;text-decoration:underline}
+.welcome h3{margin:0 0 var(--space-3);font-size:var(--text-xl)}
+.empty{padding:var(--space-4);border:1px dashed var(--border-strong);border-radius:var(--radius)}
+.empty p{margin:0 0 var(--space-3)}
+.rows{list-style:none;margin:0;padding:0;display:grid;gap:var(--space-2)}
+.rows li{display:flex;gap:var(--space-3);align-items:center;padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius)}
+.storageError{margin:var(--space-4) 0;padding:var(--space-2) var(--space-3);color:var(--danger);border:1px solid var(--danger);border-radius:var(--radius)}
+.summary{color:var(--muted);margin:0 0 var(--space-3)}
+</style>
+</head>
+<body>
+<header>
+  <h1>#67 Init app data: first-run setup</h1>
+  <p>A one-time screen on the very first visit: optional name, optional starter habits from a fixed list of 10. No nav until it is finished or skipped.</p>
+  <p><span class="new">&nbsp;New or changed&nbsp;</span><span class="tag">New</span> = dashed accent outline. Everything else already exists in the app.</p>
+</header>
+
+<!-- 1. First run -->
+<h2>First run · AC1, AC2, AC12</h2>
+<div class="frames">
+  <div class="frame mobile">
+    <p class="label">Mobile 360px: nothing checked, name field focused, no nav</p>
+    <section class="setup new" aria-labelledby="s1-title">
+      <span class="tag">New</span>
+      <h3 id="s1-title">Welcome to Good Habit Tracker</h3>
+      <p class="intro">Tell us your name and pick a few habits to start with. You can skip both.</p>
+      <form novalidate>
+        <div class="field">
+          <label for="s1-name">Your name (optional)</label>
+          <input id="s1-name" class="input focus" type="text" autocomplete="given-name">
+        </div>
+        <fieldset>
+          <legend>Pick starter habits (optional)</legend>
+          <ul class="opts">
+            <li class="opt"><input type="checkbox" id="s1-a"><label for="s1-a"><span aria-hidden="true">💧</span> Drink water</label></li>
+            <li class="opt"><input type="checkbox" id="s1-b"><label for="s1-b"><span aria-hidden="true">🚶</span> Walk</label></li>
+            <li class="opt"><input type="checkbox" id="s1-c"><label for="s1-c"><span aria-hidden="true">📖</span> Read</label></li>
+            <li class="opt"><input type="checkbox" id="s1-d"><label for="s1-d"><span aria-hidden="true">🧘</span> Meditate</label></li>
+            <li class="opt"><input type="checkbox" id="s1-e"><label for="s1-e"><span aria-hidden="true">😴</span> Sleep early</label></li>
+            <li class="opt"><input type="checkbox" id="s1-f"><label for="s1-f"><span aria-hidden="true">🤸</span> Stretch</label></li>
+            <li class="opt"><input type="checkbox" id="s1-g"><label for="s1-g"><span aria-hidden="true">✍️</span> Journal</label></li>
+            <li class="opt"><input type="checkbox" id="s1-h"><label for="s1-h"><span aria-hidden="true">🏋️</span> Exercise</label></li>
+            <li class="opt"><input type="checkbox" id="s1-i"><label for="s1-i"><span aria-hidden="true">🥗</span> Healthy meal</label></li>
+            <li class="opt"><input type="checkbox" id="s1-j"><label for="s1-j"><span aria-hidden="true">📵</span> No phone before bed</label></li>
+          </ul>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" class="btn primary">Get started</button>
+          <button type="button" class="btn">Skip</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="frame">
+    <p class="label">Desktop ~640px: same single column, "Get started" focused</p>
+    <section class="setup new" aria-labelledby="s2-title">
+      <span class="tag">New</span>
+      <h3 id="s2-title">Welcome to Good Habit Tracker</h3>
+      <p class="intro">Tell us your name and pick a few habits to start with. You can skip both.</p>
+      <form novalidate>
+        <div class="field">
+          <label for="s2-name">Your name (optional)</label>
+          <input id="s2-name" class="input" type="text" autocomplete="given-name">
+        </div>
+        <fieldset>
+          <legend>Pick starter habits (optional)</legend>
+          <ul class="opts">
+            <li class="opt"><input type="checkbox" id="s2-a"><label for="s2-a"><span aria-hidden="true">💧</span> Drink water</label></li>
+            <li class="opt"><input type="checkbox" id="s2-b"><label for="s2-b"><span aria-hidden="true">🚶</span> Walk</label></li>
+            <li class="opt"><input type="checkbox" id="s2-c"><label for="s2-c"><span aria-hidden="true">📖</span> Read</label></li>
+            <li class="opt"><input type="checkbox" id="s2-d"><label for="s2-d"><span aria-hidden="true">🧘</span> Meditate</label></li>
+            <li class="opt"><input type="checkbox" id="s2-e"><label for="s2-e"><span aria-hidden="true">😴</span> Sleep early</label></li>
+            <li class="opt"><input type="checkbox" id="s2-f"><label for="s2-f"><span aria-hidden="true">🤸</span> Stretch</label></li>
+            <li class="opt"><input type="checkbox" id="s2-g"><label for="s2-g"><span aria-hidden="true">✍️</span> Journal</label></li>
+            <li class="opt"><input type="checkbox" id="s2-h"><label for="s2-h"><span aria-hidden="true">🏋️</span> Exercise</label></li>
+            <li class="opt"><input type="checkbox" id="s2-i"><label for="s2-i"><span aria-hidden="true">🥗</span> Healthy meal</label></li>
+            <li class="opt"><input type="checkbox" id="s2-j"><label for="s2-j"><span aria-hidden="true">📵</span> No phone before bed</label></li>
+          </ul>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" class="btn primary focus">Get started</button>
+          <button type="button" class="btn">Skip</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<!-- 2. Name too long -->
+<h2>Name too long · AC3</h2>
+<div class="frames">
+  <div class="frame mobile">
+    <p class="label">Mobile 360px: nothing saved, setup stays open, error announced</p>
+    <section class="setup new" aria-labelledby="s3-title">
+      <span class="tag">New</span>
+      <h3 id="s3-title">Welcome to Good Habit Tracker</h3>
+      <form novalidate>
+        <div class="field">
+          <label for="s3-name">Your name (optional)</label>
+          <input id="s3-name" class="input focus" type="text" aria-invalid="true" aria-describedby="s3-err" value="Alexandria Catherine Montgomery-Smith">
+          <p id="s3-err" class="err" role="alert">Use at most 30 characters for your name.</p>
+        </div>
+        <fieldset>
+          <legend>Pick starter habits (optional)</legend>
+          <ul class="opts">
+            <li class="opt checked"><input type="checkbox" id="s3-a" checked><label for="s3-a"><span aria-hidden="true">💧</span> Drink water</label></li>
+            <li class="opt"><input type="checkbox" id="s3-b"><label for="s3-b"><span aria-hidden="true">🚶</span> Walk</label></li>
+            <li class="opt"><span style="color:var(--muted)">… 8 more, unchanged</span></li>
+          </ul>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" class="btn primary">Get started</button>
+          <button type="button" class="btn">Skip</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<!-- 3. Filled -->
+<h2>Name and 3 habits chosen · AC4</h2>
+<div class="frames">
+  <div class="frame mobile">
+    <p class="label">Mobile 360px: before "Get started" (name "  Sara  " is saved as "Sara")</p>
+    <section class="setup new" aria-labelledby="s4-title">
+      <span class="tag">New</span>
+      <h3 id="s4-title">Welcome to Good Habit Tracker</h3>
+      <form novalidate>
+        <div class="field">
+          <label for="s4-name">Your name (optional)</label>
+          <input id="s4-name" class="input" type="text" value="  Sara  ">
+        </div>
+        <fieldset>
+          <legend>Pick starter habits (optional)</legend>
+          <ul class="opts">
+            <li class="opt checked"><input type="checkbox" id="s4-a" checked><label for="s4-a"><span aria-hidden="true">💧</span> Drink water</label></li>
+            <li class="opt"><input type="checkbox" id="s4-b"><label for="s4-b"><span aria-hidden="true">🚶</span> Walk</label></li>
+            <li class="opt checked"><input type="checkbox" id="s4-c" checked><label for="s4-c"><span aria-hidden="true">📖</span> Read</label></li>
+            <li class="opt"><span style="color:var(--muted)">… 6 more, unchecked</span></li>
+            <li class="opt checked"><input type="checkbox" id="s4-j" checked><label for="s4-j"><span aria-hidden="true">📵</span> No phone before bed</label></li>
+          </ul>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" class="btn primary">Get started</button>
+          <button type="button" class="btn">Skip</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<!-- 4. After setup -->
+<h2>After "Get started" · AC5, AC14</h2>
+<div class="frames">
+  <div class="frame mobile">
+    <p class="label">Mobile 360px: Today view, nav is back, habits in creation order (list order of the setup)</p>
+    <nav class="app" aria-label="Views">
+      <button type="button" aria-current="page">Today</button>
+      <button type="button">Week</button>
+      <button type="button">Progress</button>
+      <button type="button">Habits</button>
+    </nav>
+    <div class="welcome new"><span class="tag">Changed</span><h3 tabindex="-1">Welcome, Sara</h3></div>
+    <p class="summary">0 of 3 done today</p>
+    <ul class="rows">
+      <li><input type="checkbox" aria-label="Drink water"> <span aria-hidden="true">💧</span> Drink water</li>
+      <li><input type="checkbox" aria-label="Read"> <span aria-hidden="true">📖</span> Read</li>
+      <li><input type="checkbox" aria-label="No phone before bed"> <span aria-hidden="true">📵</span> No phone before bed</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 5. Skip / empty -->
+<h2>After "Skip", or "Get started" with nothing · AC6, AC7, AC8</h2>
+<div class="frames">
+  <div class="frame mobile">
+    <p class="label">Mobile 360px: "Welcome" without name, empty state, setup never shown again</p>
+    <nav class="app" aria-label="Views">
+      <button type="button" aria-current="page">Today</button>
+      <button type="button">Week</button>
+      <button type="button">Progress</button>
+      <button type="button">Habits</button>
+    </nav>
+    <div class="welcome new"><span class="tag">Changed</span><h3 tabindex="-1">Welcome</h3></div>
+    <div class="empty">
+      <p>No habits yet</p>
+      <button type="button" class="btn">Add your first habit</button>
+    </div>
+  </div>
+</div>
+
+<!-- 6. Save failure -->
+<h2>Saving fails · AC11</h2>
+<div class="frames">
+  <div class="frame mobile">
+    <p class="label">Mobile 360px: existing non-blocking error, chosen name and habits stay for the session</p>
+    <nav class="app" aria-label="Views">
+      <button type="button" aria-current="page">Today</button>
+      <button type="button">Week</button>
+      <button type="button">Progress</button>
+      <button type="button">Habits</button>
+    </nav>
+    <div class="welcome"><h3 tabindex="-1">Welcome, Sara</h3></div>
+    <p class="storageError" role="alert">Your habits could not be loaded or saved. Changes may be lost when you close this page.</p>
+    <ul class="rows">
+      <li><input type="checkbox" aria-label="Drink water"> <span aria-hidden="true">💧</span> Drink water</li>
+      <li><input type="checkbox" aria-label="Read"> <span aria-hidden="true">📖</span> Read</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>
