@@ -29,7 +29,7 @@ async function saveName(user: ReturnType<typeof userEvent.setup>, text: string, 
 
 describe("HabitList profile", () => {
   beforeEach(() => {
-    localStorage.clear();
+    localStorage.setItem("setup:v1", JSON.stringify({ done: true }));
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(NOW);
   });

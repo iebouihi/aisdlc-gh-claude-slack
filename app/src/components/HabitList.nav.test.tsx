@@ -17,7 +17,7 @@ describe("app navigation (#27)", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(NOW);
-    localStorage.clear();
+    localStorage.setItem("setup:v1", JSON.stringify({ done: true }));
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -152,7 +152,7 @@ describe("app navigation (#27)", () => {
     await user.click(screen.getByRole("button", { name: "Today" }));
     await user.click(screen.getByRole("checkbox", { name: "Done today: Read" }));
     const keys = Object.keys(localStorage)
-      .filter((k) => k !== "badges:v1")
+      .filter((k) => k !== "badges:v1" && k !== "setup:v1") // setup:v1: first-run flag (#67)
       .sort();
     expect(keys).toEqual(["checkins:v1", "habits:v1"]);
   });

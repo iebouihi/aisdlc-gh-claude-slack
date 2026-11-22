@@ -19,13 +19,15 @@ export class App {
   constructor(readonly page: Page) {}
 
   /** Opens the app, optionally with localStorage entries (key -> JSON value) already set. */
-  async open(storage: Record<string, unknown> = {}) {
-    if (Object.keys(storage).length) {
-      await this.page.addInitScript((entries) => {
-        for (const [key, value] of Object.entries(entries)) {
+  async open(storage: Record<string, unknown> = {}, options: { firstRun?: boolean } = {}) {
+    // Empty storage is a first run (#67): mark the setup done unless the test is about it.
+    const entries = options.firstRun ? storage : { "setup:v1": { done: true }, ...storage };
+    if (Object.keys(entries).length) {
+      await this.page.addInitScript((initial) => {
+        for (const [key, value] of Object.entries(initial)) {
           window.localStorage.setItem(key, JSON.stringify(value));
         }
-      }, storage);
+      }, entries);
     }
     await this.page.goto("/");
     await expect(this.page.getByRole("heading", { level: 1 })).toBeVisible();

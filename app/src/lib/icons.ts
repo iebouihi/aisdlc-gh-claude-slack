@@ -27,6 +27,7 @@ export const ICON_CATALOG: readonly HabitIcon[] = [
   { id: "teeth", emoji: "🦷", label: "Teeth" },
   { id: "pill", emoji: "💊", label: "Medicine" },
   { id: "heart", emoji: "❤️", label: "Heart" },
+  { id: "stretch", emoji: "🤸", label: "Stretch" },
 ];
 
 /** Neutral icon shown for habits without a (valid) icon. */

@@ -119,8 +119,9 @@ describe("HabitList streaks", () => {
     render(<HabitList />);
     expect(row("Run").getByText("1-day streak")).toBeInTheDocument();
     expect([localStorage.getItem(HABITS_KEY), localStorage.getItem(CHECKINS_KEY)]).toEqual(before);
-    // The only new key is badges:v1 (First Step is awarded from the existing check-in, #24).
-    expect(localStorage.length).toBe(3);
+    // The only new key is badges:v1 (First Step is awarded from the existing check-in, #24);
+    // the fourth key is the first-run flag seeded by vitest.setup.ts (#67).
+    expect(localStorage.length).toBe(4);
   });
 
   it("AC12 (#3): a legacy habit without frequency or dates counts as Daily from createdAt", () => {

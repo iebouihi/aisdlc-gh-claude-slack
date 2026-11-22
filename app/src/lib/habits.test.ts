@@ -128,10 +128,10 @@ describe("schedule on habits (#15)", () => {
 });
 
 describe("icon catalog", () => {
-  it("AC17 (#1): has 24 options, each with a text label and a unique id", () => {
-    expect(ICON_CATALOG).toHaveLength(24);
+  it("AC17 (#1): has 25 options, each with a text label and a unique id", () => {
+    expect(ICON_CATALOG).toHaveLength(25);
     expect(ICON_CATALOG.every((i) => i.label.length > 0)).toBe(true);
-    expect(new Set(ICON_CATALOG.map((i) => i.id)).size).toBe(24);
+    expect(new Set(ICON_CATALOG.map((i) => i.id)).size).toBe(25);
   });
   it("AC2 (#1): missing or unknown ids give the default icon", () => {
     expect(iconEmoji(undefined)).toBe(DEFAULT_ICON_EMOJI);

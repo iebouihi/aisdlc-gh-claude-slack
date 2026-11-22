@@ -355,6 +355,73 @@ form.profile {
   margin: 0;
 }
 
+/* First-run setup: one column, no fixed width, so 320px never scrolls. */
+.setup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.setupTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.setupIntro {
+  margin: 0;
+}
+
+.setupForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setupField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setupHabits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.setupHabit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--control-height);
+  overflow-wrap: anywhere;
+}
+
+.setupHabit input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.setupHabit input:focus-visible,
+.setupActions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.setupActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .todaySummary {
   margin: 16px 0 0;
   font-weight: 600;
