@@ -1,0 +1,2 @@
+date,phase,step,model,input_tokens,output_tokens,cache_write_tokens,cache_read_tokens,total_tokens,cost_usd,run_url
+2026-11-22 19:35,refinement,select,claude-sonnet-5-5,1484,274,1793,0,3551,0.0102,https://github.com/iebouihi/aisdlc-gh-claude-slack/actions/runs/45061637758
