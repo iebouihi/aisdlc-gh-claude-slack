@@ -127,6 +127,15 @@ Labelling an issue `needs-refinement` starts the Slack thread within a minute; a
 every 10 minutes handles replies, the proposal and the approval; merging the spec PR marks the
 issue ready. One-time setup: [docs/automation-setup.md](docs/automation-setup.md)
 
+## Token usage
+
+Every Claude call made for an issue is recorded, phase by phase (refinement, design,
+development, test, bug, review changes): input, output and cache tokens, and the cost.
+- **On the issue:** one "🔢 Token usage" comment with the table and totals per phase, updated
+  after each call.
+- **As CSV:** `token-usage/issue-<n>-<title>.csv` on the `metrics` branch (an orphan branch with
+  only metrics, so `main` never gets bot commits). Open it on GitHub or download it for a sheet.
+
 ## Use it
 1. Open an issue with the **Requirement** template (it adds `needs-refinement`).
 2. Answer Claude's questions in the Slack thread ("3: yes", or "rest ok" for the defaults).

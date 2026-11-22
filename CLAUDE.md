@@ -57,6 +57,13 @@ This repo runs the requirement refinement workflow for **good-habit-tracker**
   `keeps working` rows (regression scope). The designer designs it, the developer updates the
   impacted features and their tests, the tester verifies both.
 
+## Token usage
+- Every Claude call is recorded per issue and phase (`automation/refinement/usage.py`, config
+  `usage`): refinement steps from the API response's `usage`, agent runs from Claude Code's
+  `execution_file` (`python -m automation.refinement usage <issue|branch> <phase> <step>` in each
+  agent workflow). Two outputs: one "Token usage" comment on the issue (a table, edited in place)
+  and `token-usage/issue-<n>-<title>.csv` on the orphan `metrics` branch (never main).
+
 ## Bugs
 - Bugs (issue type **Bug**, or the `bug` label: issue types can't be set on personal repos): `need-fix` starts the `bug-investigator` agent (root cause, no code
   changes, report format in `root-cause-report`); `fix-approved` (after validation) starts the

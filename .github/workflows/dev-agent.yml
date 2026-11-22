@@ -51,6 +51,7 @@ jobs:
           node-version: 22
 
       - name: Developer agent implements the issue
+        id: agent
         if: steps.start.outputs.go == 'true'
         uses: anthropics/claude-code-action@v1
         with:
@@ -58,6 +59,14 @@ jobs:
           prompt: ${{ steps.start.outputs.prompt }}
           claude_args: ${{ steps.start.outputs.claude_args }}
           settings: ${{ steps.start.outputs.settings }}
+
+      - name: Record token usage (issue comment + CSV on the metrics branch)
+        if: always() && steps.agent.outputs.execution_file != ''
+        continue-on-error: true
+        env:
+          EXECUTION_FILE: ${{ steps.agent.outputs.execution_file }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m automation.refinement usage "${{ github.event.issue.number }}" development implement
 
       - name: Report the pull request (GitHub, Slack)
         id: finish

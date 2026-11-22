@@ -78,7 +78,7 @@ class Fake:
         self.branches, self.files, self.pulls, self.broadcasts = {}, {}, {}, []
         self.next_answer, self.selection, self.pr_fails = None, [], False
         self.shas, self.dispatches, self.dispatch_fails = {}, [], False
-        self.other_comments, self.statuses = {}, []
+        self.other_comments, self.statuses, self.git_objects = {}, [], []
         self.clock = time.time() - 3600
 
     # --- GitHub ---
@@ -89,7 +89,9 @@ class Fake:
             want = re.search(r"labels=([\w-]+)", path).group(1)
             return [self.issue] if any(l["name"] == want for l in self.issue["labels"]) else []
         if method == "GET" and path.startswith("/issues/7/comments"):
-            return [{"body": c} for c in self.comments]
+            return [{"id": i, "body": c} for i, c in enumerate(self.comments)]
+        if method == "PATCH" and path.startswith("/issues/comments/"):
+            self.comments[int(path.rsplit("/", 1)[1])] = kw["json"]["body"]; return {}
         if method == "POST" and path == "/issues/7/comments":
             self.comments.append(kw["json"]["body"]); return {}
         if method == "POST" and path == "/issues/7/labels":
@@ -115,7 +117,13 @@ class Fake:
         if method == "GET" and path.startswith("/contents/"):
             p, branch = path[len("/contents/"):].split("?ref=")
             assert missing_ok
-            return {"sha": "s"} if p in self.branches.get(branch, {}) else None
+            files = self.branches.get(branch, {})
+            if p in files:
+                return {"sha": "s", "content": base64.b64encode(files[p].encode()).decode()}
+            listing = [{"name": f[len(p) + 1:], "path": f} for f in files if f.startswith(p + "/")]
+            return listing or None
+        if method == "POST" and path in ("/git/trees", "/git/commits"):
+            self.git_objects.append((path, kw["json"])); return {"sha": f"sha-{len(self.git_objects)}"}
         if method == "PUT" and path.startswith("/contents/"):
             body = kw["json"]
             self.branches[body["branch"]][path[len("/contents/"):]] = base64.b64decode(body["content"]).decode()
@@ -271,7 +279,7 @@ def test_config_texts_have_known_placeholders():
                "module", "count", "entities", "titles", "id", "summary", "file", "decisions", "issues", "path",
                "content", "run_url", "trigger", "approved", "proposed", "type", "needs_refinement", "verdict",
                "confidence", "report", "type_label", "skip", "mockup", "mockup_url", "names", "remarks", "name",
-               "text", "implement", "design", "acceptance", "regressions", "context"}
+               "text", "implement", "design", "acceptance", "regressions", "context", "file", "csv_url", "tokens", "cost", "phases"}
     texts = [v for section in (cfg["messages"]["slack"], cfg["messages"]["github"], cfg["tasks"],
                                cfg["specs"]["generated"]) for v in section.values()]
     for t in texts:
