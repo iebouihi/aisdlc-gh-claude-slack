@@ -25,7 +25,7 @@ const stored = () => JSON.parse(localStorage.getItem(BADGES_KEY) ?? "null");
 
 describe("HabitList badges", () => {
   beforeEach(() => {
-    localStorage.clear();
+    localStorage.setItem("setup:v1", JSON.stringify({ done: true }));
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(NOW);
   });

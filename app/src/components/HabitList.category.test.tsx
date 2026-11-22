@@ -28,7 +28,7 @@ const groupHeadings = () =>
 
 describe("habit categories (#50)", () => {
   beforeEach(() => {
-    localStorage.clear();
+    localStorage.setItem("setup:v1", JSON.stringify({ done: true }));
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(NOW);
   });
@@ -165,7 +165,8 @@ describe("habit categories (#50)", () => {
     expect(JSON.parse(localStorage.getItem(HABITS_KEY)!)[0].category).toBe("fitness");
     unmount();
     renderView("Habits");
-    expect(screen.getByText("Stretch")).toBeInTheDocument();
+    // "Stretch" is also an icon label in the picker (#67): look in the list only
+    expect(screen.getByText("Stretch", { selector: "li *" })).toBeInTheDocument();
     expect(screen.queryByText("Fitness", { selector: "li *" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Edit Stretch" }));
     expect((screen.getAllByLabelText("Category")[1] as HTMLSelectElement).value).toBe("fitness");

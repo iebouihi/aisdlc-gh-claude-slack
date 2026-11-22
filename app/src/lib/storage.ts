@@ -5,6 +5,7 @@ export const CHECKINS_KEY = "checkins:v1";
 export const BADGES_KEY = "badges:v1";
 export const PROFILE_KEY = "profile:v1";
 export const MOOD_KEY = "mood:v1";
+export const SETUP_KEY = "setup:v1";
 
 export type StorageFailureReason = "unavailable" | "corrupted";
 

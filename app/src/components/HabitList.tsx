@@ -22,6 +22,7 @@ import {
 import { awardBadges, newBadgeIds, parseBadges, type Badge, type EarnedBadge } from "@/lib/badges";
 import { latestBadge, parseProfile, welcomeText } from "@/lib/profile";
 import { iconEmoji } from "@/lib/icons";
+import { isFirstRun, starterHabits } from "@/lib/firstRun";
 import {
   clearMood,
   insights,
@@ -60,6 +61,7 @@ import {
   HABITS_KEY,
   MOOD_KEY,
   PROFILE_KEY,
+  SETUP_KEY,
   readJson,
   writeJson,
 } from "@/lib/storage";
@@ -67,6 +69,7 @@ import { AppNav, type View } from "./AppNav";
 import { Badges } from "./Badges";
 import { BudgetFields } from "./BudgetFields";
 import { DeleteDialog } from "./DeleteDialog";
+import { FirstRunSetup } from "./FirstRunSetup";
 import { CategorySelect } from "./CategorySelect";
 import { IconPicker } from "./IconPicker";
 import { Insights } from "./Insights";
@@ -157,6 +160,8 @@ function BudgetLine({
 export function HabitList() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loaded, setLoaded] = useState(false);
+  // First-run setup is shown instead of the app; session state, decided at load, never stored.
+  const [firstRun, setFirstRun] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [checkins, setCheckins] = useState<CheckIn[]>([]);
   const [checkinError, setCheckinError] = useState(false);
@@ -242,6 +247,8 @@ export function HabitList() {
     const parsedProfile = profileResult.ok ? parseProfile(profileResult.value) : null;
     if (parsedProfile === null) setProfileError(true);
     else setProfileName(parsedProfile);
+    // First run: all data keys and the done flag are readable and missing; nothing is written here.
+    setFirstRun(isFirstRun([result, checkinResult, profileResult, readJson(SETUP_KEY)]));
     setToday(now);
     setTime(toLocalTime(new Date()));
     setAddSchedule(newDraft());
@@ -317,6 +324,26 @@ export function HabitList() {
   function saveProfileName(name: string) {
     setProfileName(name);
     setProfileError(!writeJson(PROFILE_KEY, { name }).ok);
+  }
+
+  /** Close the setup for good: the flag is the only record of a skip (a failed write shows the error). */
+  function closeSetup() {
+    if (!writeJson(SETUP_KEY, { done: true }).ok) setStorageError(true);
+    setFirstRun(false);
+    setView("today");
+  }
+
+  /** Finish: save the starter habits and the name when given, then mark the setup done. */
+  function finishSetup(name: string, ids: string[]) {
+    if (ids.length > 0) persist(starterHabits(habits, ids, new Date()));
+    if (name) saveProfileName(name);
+    pendingFocus.current = `[data-focus="welcome"]`;
+    closeSetup();
+  }
+
+  function skipSetup() {
+    pendingFocus.current = `[data-focus="welcome"]`;
+    closeSetup();
   }
 
   function toggle(habitId: string) {
@@ -436,6 +463,14 @@ export function HabitList() {
   const summary = todaySummary(habits, checkins, today);
   const habitToDelete = habits.find((h) => h.id === deleteId);
 
+  if (loaded && firstRun) {
+    return (
+      <section>
+        <FirstRunSetup onFinish={finishSetup} onSkip={skipSetup} />
+      </section>
+    );
+  }
+
   return (
     <section>
       <AppNav view={view} onChange={setView} />
@@ -496,7 +531,9 @@ export function HabitList() {
 
       {loaded && view === "today" && (
         <div className={styles.welcome}>
-          <h2 className={styles.welcomeHeading}>{welcomeText(profileName)}</h2>
+          <h2 className={styles.welcomeHeading} tabIndex={-1} data-focus="welcome">
+            {welcomeText(profileName)}
+          </h2>
           {welcomeBadge && (
             <p className={styles.welcomeBadge}>
               <span aria-hidden="true">{welcomeBadge.logo}</span> {welcomeBadge.name}
