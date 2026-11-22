@@ -2,17 +2,18 @@
 id: habits/user-profile
 title: User profile and welcome
 module: habits
-summary: An optional user name set inline in the Habits view, shown in a welcome heading on the Today view with the emoji and name of the most recently earned badge; stored in the browser's localStorage.
+summary: An optional user name, asked once in the first-run setup and edited inline in the Habits view, shown in a welcome heading on the Today view with the emoji and name of the most recently earned badge; stored in the browser's localStorage.
 entities: [Profile]
 status: active
-issues: [30]
-updated: 2026-11-01
+issues: [30, 67]
+updated: 2026-11-22
 ---
 # User profile and welcome
 
 ## Current behaviour
+- The name is first asked once in the first-run setup (see `habits/first-run-setup`), where it can be skipped.
 - The Habits view has an inline "Your name" control. The user can set, edit (Save or Cancel) and remove the name. Clearing the field and choosing Save removes the name.
-- The name is optional. The app never prompts for it on first visit and never blocks on it.
+- The name is optional. After the one-time first-run setup the app never prompts for it and never blocks on it.
 - Name rules: trimmed, 1 to 30 characters, any text. It is rendered as plain text, never as HTML. A name longer than 30 characters is not saved and an inline error is shown and announced.
 - The Today view starts with a welcome heading: "Welcome, <name>", or "Welcome" when there is no name.
 - Next to the welcome, the emoji and the name of the most recently earned badge are shown (e.g. "🌱 Steady 3"). "Most recent" is by earned date; on a tie, the badge furthest along the badge order (First Step, Steady 3, Week Warrior, Fortnight Focus, Iron Discipline). No badge earned: no icon.
@@ -27,10 +28,10 @@ updated: 2026-11-01
 ## Decisions
 | ID | Decision | Since | Source |
 |---|---|---|---|
-| D1 | The name is set and edited inline in the Habits view; the nav stays at exactly three items (`platform/app-navigation` D1 unchanged) | #30 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793572695958959?thread_ts=1793572695.958959&cid=C0CDNGE90V7) |
+| ~~D1~~ | ~~The name is set and edited inline in the Habits view; the nav stays at exactly three items (`platform/app-navigation` D1 unchanged)~~ → superseded by D13 (#67) | #30 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1793572695958959?thread_ts=1793572695.958959&cid=C0CDNGE90V7) |
 | D2 | The welcome is a heading at the top of the Today view: "Welcome, <name>" or "Welcome" | #30 | same thread |
 | D3 | The icon is the emoji of the most recently earned badge, shown with the badge name as text; no icon if none is earned | #30 | same thread |
-| D4 | The name is optional; no prompt, no blocking | #30 | same thread |
+| ~~D4~~ | ~~The name is optional; no prompt, no blocking~~ → superseded by D12 (#67) | #30 | same thread |
 | D5 | Name: trimmed, 1 to 30 characters, any text, plain text only; an empty save clears it | #30 | same thread |
 | D6 | Edit action with Save and Cancel; clear and Save removes the name | #30 | same thread |
 | D7 | Most recent badge by earned date; on a tie, the one furthest along the badge order | #30 | same thread |
@@ -38,6 +39,8 @@ updated: 2026-11-01
 | D9 | Stored in `profile:v1` as {name}; `habits:v1`, `checkins:v1`, `badges:v1` unchanged, no migration | #30 | same thread |
 | D10 | Corrupted or unavailable `profile:v1`: non-blocking error, welcome without name, no crash, no overwrite until the user saves | #30 | same thread |
 | D11 | Minimal style; the badge name is text next to the emoji; AA contrast, keyboard operable with visible focus, labelled field, announced errors, usable from 320px | #30 | same thread |
+| D12 | The name stays optional and never blocks the app; it is asked only once, in the skippable first-run setup (`habits/first-run-setup`), and never prompted afterwards | #67 | [Slack thread](https://aisdlc-group.slack.com/archives/C0CDNGE90V7/p1795376169606549?thread_ts=1795376169.606549&cid=C0CDNGE90V7) |
+| D13 | The name is set in the first-run setup and set, edited and removed inline in the Habits view; the nav stays at exactly three items (`platform/app-navigation` D1 unchanged) | #67 | same thread |
 
 ## Data
 - Entity `Profile`: `name` (string, trimmed, 1 to 30 characters). When no name is set, there is no name value.
@@ -55,3 +58,4 @@ updated: 2026-11-01
 
 ## History
 - 2026-11-01 #30: Created the capability (optional user name, welcome heading on Today, latest earned badge icon, `profile:v1`).
+- 2026-11-22 #67: The name is also asked once in the skippable first-run setup (D12, D13; D4 and D1 superseded).
