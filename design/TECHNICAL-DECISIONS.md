@@ -1,6 +1,6 @@
 ---
-updated: 2026-11-21
-issues: [53, 61]
+updated: 2026-11-22
+issues: [53, 61, 67]
 ---
 
 # good-habit-tracker: technical decisions
@@ -16,7 +16,7 @@ code is: `app/ARCHITECTURE.md`. _How a feature is built_: its design in `design/
 - **Layers:** pure domain functions in `src/lib/` → thin client components in `src/components/`
   → one page `src/app/page.tsx`. `HabitList` owns the data state and the current view (A2).
 - **Data:** browser `localStorage` behind one adapter (`src/lib/storage.ts`), one versioned key
-  per entity: `habits:v1`, `checkins:v1`, `badges:v1`, `profile:v1`, plus `mood:v1` once #53 is built.
+  per entity: `habits:v1`, `checkins:v1`, `badges:v1`, `profile:v1`, plus `mood:v1` once #53 is built and `setup:v1` (first-run done flag) once #67 is built.
 - **UI:** CSS Modules + design tokens (`src/app/tokens.css`); hand-built components, SVG charts
   and dialogs; no UI or chart library.
 - **Quality:** Vitest + Testing Library for units and components; Playwright for end-to-end and
@@ -42,6 +42,9 @@ code is: `app/ARCHITECTURE.md`. _How a feature is built_: its design in `design/
 | TD13 | The Week view's selected window is its end date (`string`, or `null` = current) in `WeekView` state; `null` or a date `>= today` means the current window | current follows `today` across midnight, a chosen past window never moves | state | #61 |
 | TD14 | The Week "Previous" limit is the window containing the earliest habit `createdAt` (local date) or check-in date, computed on render by `earliestDate()` in `week.ts` | no stored data (TD1) | domain | #61 |
 | TD15 | Window changes are announced by an `aria-live="polite"` range label; disabled buttons differ by dashed border and muted text, not colour alone | accessibility | UI | #61 |
+| TD16 | First run = `habits:v1`, `checkins:v1`, `profile:v1` and `setup:v1` all read OK and missing; any read failure or present key means no setup | one rule for new, existing and broken storage, nothing written at load | data | #67 |
+| TD17 | The first-run-done flag is its own key `setup:v1` = `{"done": true}`, written on finish and skip | a skip with nothing saved has no other record (TD2) | data | #67 |
+| TD18 | The 10 starter habits are the constant `STARTER_HABITS` in `src/lib/firstRun.ts` (catalog icon ids; "Stretch" adds one icon); they are created with `addHabit` | fixed list in code, starter habits are normal habits | domain | #67 |
 
 ## Designs
 
@@ -49,3 +52,4 @@ code is: `app/ARCHITECTURE.md`. _How a feature is built_: its design in `design/
 |---|---|---|
 | #53 Mood correlation | [technical-spec](issue-53/technical-spec.md) | [mockup](issue-53/mockup.html) |
 | #61 Week navigation | [technical-spec](issue-61/technical-spec.md) | [mockup](issue-61/mockup.html) |
+| #67 First-run setup | [technical-spec](issue-67/technical-spec.md) | [mockup](issue-67/mockup.html) |
