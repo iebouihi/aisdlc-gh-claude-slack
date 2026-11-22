@@ -56,8 +56,20 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - uses: anthropics/claude-code-action@v1
+      - name: Agent applies the request
+        id: agent
+        uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: ${{ steps.args.outputs.claude_args }}
           settings: ${{ steps.args.outputs.settings }}
+      - name: Record token usage (issue comment + CSV on the metrics branch)
+        if: always() && steps.agent.outputs.execution_file != '' && steps.pr.outputs.ref != ''
+        continue-on-error: true
+        env:
+          EXECUTION_FILE: ${{ steps.agent.outputs.execution_file }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF: ${{ steps.pr.outputs.ref }}
+        run: |
+          case "$REF" in design/*) phase=design ;; fix/*) phase=bug ;; spec/*) phase=refinement ;; *) phase=development ;; esac
+          python -m automation.refinement usage "$REF" "$phase" review-changes

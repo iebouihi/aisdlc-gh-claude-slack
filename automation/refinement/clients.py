@@ -41,6 +41,7 @@ class Claude:
     def __call__(self, system, task, tool):
         import anthropic
         client = anthropic.Anthropic()
+        self.last_usage = []  # (model, usage) of every API call of this step, for token monitoring
         if self.cache:  # the agent + skills prompt is identical across runs of a step
             system = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
         messages = [{"role": "user", "content": task + "\n\n" + self.reminder.format(tool=tool["name"])}]
@@ -48,6 +49,7 @@ class Claude:
         for _ in range(2):
             msg = client.messages.create(model=self.model, max_tokens=self.max_tokens, system=system,
                                          tools=[tool], tool_choice={"type": "auto"}, messages=messages)
+            self.last_usage.append((getattr(msg, "model", None) or self.model, msg.usage))
             for block in msg.content:
                 if block.type == "tool_use" and block.name == tool["name"]:
                     return block.input

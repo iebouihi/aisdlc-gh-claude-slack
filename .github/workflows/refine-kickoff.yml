@@ -13,7 +13,7 @@ concurrency:
 
 permissions:
   issues: write
-  contents: read
+  contents: write   # token usage CSV on the metrics branch
 
 jobs:
   kickoff:

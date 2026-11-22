@@ -261,6 +261,14 @@ whether it must **keep working** (regression scope). That table in the issue dri
 | developer | update the impacted features and the existing tests that assert old behaviour; leave the rest untouched |
 | tester | treat changed tests as intended, and every other failing test as a regression |
 
+## Token usage
+
+Agents cost tokens, so every phase reports what it used. Each Claude call (refinement steps,
+and every designer, developer, tester, investigator and `@claude` run) adds a row: date, phase,
+step, model, input, output and cache tokens, cost and a link to the run. The rows go to a
+"Token usage" comment on the issue, with totals per phase, and to
+`token-usage/issue-<n>-<title>.csv` on the `metrics` branch, ready for a spreadsheet.
+
 ## The bug-fix flow
 
 A bug differs from a requirement: the expected behaviour already exists in the specs, and the

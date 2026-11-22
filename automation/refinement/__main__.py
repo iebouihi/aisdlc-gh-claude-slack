@@ -5,6 +5,8 @@
   python -m automation.refinement design-finish <issue> <run_url> [revise <before_sha>]  report the design PR
   python -m automation.refinement design-revise <issue> <run_url>  prepare a designer run on Slack remarks
   python -m automation.refinement design-remarks              send new Slack remarks on open designs to the designer
+  python -m automation.refinement usage <issue|branch> <phase> <step>  record a Claude Code run's token usage
+                                                              (env EXECUTION_FILE) on the issue and its CSV
   python -m automation.refinement test-start <issue> <label|""> <run_url>  test phase: test, re-test or qa-approved?
   python -m automation.refinement test-finish <issue> <run_url>  post the test report (issue, PR, Slack, QA status)
   python -m automation.refinement dev-start <issue> <run_url> decide and prepare a developer agent run
@@ -27,6 +29,7 @@ from .clients import Claude, GitHub, Slack
 from .bugs import BugFix
 from .delivery import Delivery
 from .design import Design
+from . import usage
 from .engine import Refinement
 from .testing import Testing
 
@@ -95,8 +98,36 @@ def missing(names):
     return gone
 
 
+def record_agent_usage(cfg, target, phase, step):
+    """Token usage of a Claude Code run (env EXECUTION_FILE) for an issue number or an agent branch."""
+    path = os.environ.get("EXECUTION_FILE", "")
+    if not path or not os.path.exists(path):
+        print(f"No execution file ({path or 'EXECUTION_FILE not set'}): no token usage to record")
+        return
+    if target.isdigit():
+        number = int(target)
+    else:  # a PR branch: dev/issue-7, fix/issue-7, design/issue-7, spec/issue-7
+        prefixes = [cfg["delivery"]["branch_prefix"], cfg["bugs"]["branch_prefix"],
+                    cfg["design"]["branch_prefix"], cfg["specs"]["branch_prefix"]]
+        found = [target[len(p):] for p in prefixes if target.startswith(p) and target[len(p):].isdigit()]
+        if not found:
+            print(f"{target!r}: not an agent branch, usage skipped")
+            return
+        number = int(found[0])
+    try:
+        rows = usage.from_execution_file(path, phase, step, cfg["usage"]["prices"])
+    except (OSError, ValueError) as e:
+        print(f"::warning title=Token usage unreadable::{type(e).__name__}: {e}")
+        return
+    usage.UsageLog(cfg, GitHub(cfg["github"]["repo"])).record(number, rows)
+
+
 def main(argv):
     cfg = config.load()
+    if argv[:1] == ["usage"] and len(argv) == 4:
+        if missing(("GITHUB_TOKEN",)):
+            return None
+        return record_agent_usage(cfg, *argv[1:])
     if argv[:1] == ["show-prompt"]:
         return show_prompt(cfg, (argv[1:] or ["kickoff"])[0])
     if argv == ["specs-index"]:

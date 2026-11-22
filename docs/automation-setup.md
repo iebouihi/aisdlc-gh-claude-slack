@@ -61,6 +61,13 @@ designer agent runs through the same app).
 
 Optional: `TEST_CLAUDE_MODEL` overrides `testing.model` (the tester agent).
 
+### Token usage
+Nothing to set up: the first recorded call creates the orphan `metrics` branch
+(`token-usage/issue-<n>-<title>.csv`) and a "Token usage" comment on the issue. Prices used to
+estimate refinement calls are in `config/refinement.yml` → `usage.prices` (agent runs report their
+own cost); update them when models or prices change. If branch protection covers all branches,
+exclude `metrics`. Turn it off with `usage.enabled: false`.
+
 ### 6. Enforce the QA gate (recommended)
 Repo → **Settings → Branches → Branch protection rule** for `main` → **Require status checks to
 pass** → add `QA` (and `check`, `e2e`). Then a developer or fix PR can only be merged after a

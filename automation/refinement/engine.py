@@ -8,6 +8,7 @@ import re
 import time
 
 from . import specs as spec_store
+from . import usage
 from .config import ROOT
 from .questions import group_in_order, parse_questions
 
@@ -58,7 +59,23 @@ class Refinement:
         skill = self.agent.skill(conf["skill"])
         system = self.agent.system_prompt(arguments=number, only=[conf["skill"]] + list(conf.get("uses", [])))
         task = self.cfg["tasks"][step].format(product=self.cfg["product"]["description"].strip(), **data)
-        return self.claude(system, task, skill.tool)
+        try:
+            return self.claude(system, task, skill.tool)
+        finally:
+            self.record_usage(number, step)
+
+    def record_usage(self, number, step):
+        """Token usage of the Claude call(s) just made for this step (issue comment + CSV)."""
+        calls = getattr(self.claude, "last_usage", None) or []
+        if not calls:
+            return
+        prices = self.cfg["usage"]["prices"]
+        rows = [usage.from_api(u, model, "refinement", step, prices) for model, u in calls]
+        total = rows[0]
+        for r in rows[1:]:
+            total = usage.add(total, r)
+        usage.UsageLog(self.cfg, self.gh, self.log).record(int(number), [total])
+        self.claude.last_usage = []
 
     def issue_text(self, issue):
         return f"Issue #{issue['number']}: {issue['title']}\nURL: {issue['html_url']}\n\n{issue.get('body') or ''}"

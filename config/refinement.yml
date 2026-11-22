@@ -45,6 +45,30 @@ claude:
       skill: refine-thread
       uses: [requirement-format, living-spec]
 
+# Token usage: every Claude call, per issue and phase - a table in one issue comment and a CSV per
+# issue on a dedicated branch (never main). See automation/refinement/usage.py.
+usage:
+  enabled: true
+  branch: metrics                # orphan branch, created on first use; holds only the CSV files
+  dir: token-usage
+  file: "issue-{number}-{slug}.csv"   # slug = the issue title, lowercase, first words
+  slug_max_words: 6
+  commit: "Token usage #{number}: {phase} / {step}"
+  commit_init: "Token usage metrics"
+  readme: |
+    # Token usage
+
+    One CSV per issue in `{dir}/` (`issue-<number>-<title>.csv`): every Claude call made for the
+    issue, by phase and step, with input, output and cache tokens and the cost in USD. Written
+    by the automation; the same table is in a comment on each issue. This branch (`{branch}`)
+    holds only metrics, never code.
+  table_headers: [Date (UTC), Phase, Step, Model, Input, Output, Cache write, Cache read, Total, Cost, Run]
+  # USD per million tokens, used to estimate refinement API calls (agent runs report their own
+  # cost). Check https://platform.claude.com/docs/en/about-claude/pricing when models or prices change.
+  prices:
+    claude-sonnet-5-5: {input: 2.00, output: 10.00, cache_write: 2.50, cache_read: 0.10}
+    claude-opus-5-5: {input: 4.00, output: 20.00, cache_write: 5.00, cache_read: 0.20}
+
 # Living specs: current behaviour, one file per capability (see the living-spec skill).
 specs:
   dir: specs
@@ -359,6 +383,9 @@ messages:
 
       Implemented by the developer agent: {run_url}
     dev_done: "✅ Merged in {pr_url}. Done."
+    usage_header: "## 🔢 Token usage\n\nEvery Claude call made for this issue, by phase. Also in [`{file}`]({csv_url}) on the metrics branch."
+    usage_total: "**Total: {tokens} tokens · {cost}** — by phase: {phases}"
+    usage_note: "<sub>Cost: reported by Claude Code for agent runs; estimated from list prices for refinement calls. Updated automatically after each call.</sub>"
     test_started: "🧪 Tester agent started on `{branch}` ({pr_url}): {run_url}"
     test_report_header: "## 🧪 Test report\n\nVerdict: **{verdict}** · Acceptance criteria: **{acceptance}** · Regressions: **{regressions}** · [Run]({run_url})\n\n> {summary}"
     test_next_pass: "**Next:** review the report and add `{approved}` to the issue to approve the merge (sets the `{context}` status on the PR to success)."
